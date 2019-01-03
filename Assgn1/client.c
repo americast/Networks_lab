@@ -28,17 +28,12 @@ int main() {
     servaddr.sin_port = htons(8181); 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
     
-    char *hello = "CLIENT:HELLO"; 
+    char *filename = "test.txt"; 
       
-    sendto(sockfd, (const char *)hello, strlen(hello), 0, 
+    sendto(sockfd, (const char *)filename, strlen(filename)+1, 0, 
 			(const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-    printf("Hello message sent from client\n"); 
+    printf("Filename sent from client\n"); 
            
-    sendto(sockfd, (const char *)hello, strlen(hello), 0, 
-			(const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-    printf("Hello message sent from client\n");    
-
-
     int n; 
     socklen_t len;
     char buffer[MAXLINE]; 
@@ -47,6 +42,32 @@ int main() {
 			( struct sockaddr *) &cliaddr, &len);     
     close(sockfd); 
     printf("%s\n", buffer);
+    FILE *fout;
+    fout = fopen("test_out.txt", "w");
+    if (strcmp(buffer,"NOTFOUND"))
+        printf("File not found\n");
+    else
+    {
+        while(1)
+        {
+            char *word = "WORD"; 
+              
+            sendto(sockfd, (const char *)word, strlen(word)+1, 0, 
+                    (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+
+
+            n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
+                        ( struct sockaddr *) &cliaddr, &len);
+            if (strcmp(buffer, "END"))
+                return 0;  
+            else if (!strcmp(buffer,"HELLO"))
+            {
+                fprintf(fout, "%s ", buffer);
+            }
+        }
+            
+    }
     return 0; 
-} 
+}
+ 
 

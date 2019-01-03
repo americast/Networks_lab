@@ -13,6 +13,7 @@
 int main() { 
     int sockfd; 
     struct sockaddr_in servaddr, cliaddr; 
+    int FILE_FLAG = 0;
       
     // Create socket file descriptor 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -37,22 +38,41 @@ int main() {
     } 
     
     printf("\nServer Running....\n");
-    while(1) {  
-    int n; 
-    socklen_t len;
-    char buffer[MAXLINE]; 
+    while(1) 
+    {  
+        int n; 
+        socklen_t len;
+        char buffer[MAXLINE]; 
 
-    len = sizeof(cliaddr);
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-			( struct sockaddr *) &cliaddr, &len); 
-    buffer[n] = '\0'; 
-    printf("%s\n", buffer);
-    printf("Port: %d\n",ntohs(cliaddr.sin_port));
+        len = sizeof(cliaddr);
+        n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
+    			( struct sockaddr *) &cliaddr, &len); 
+        buffer[n] = '\0'; 
+        printf("%s\n", buffer);
+        // printf("Port: %d\n",ntohs(cliaddr.sin_port));
+        FILE *fread;
+        fread = fopen(buffer, "r");
+        if (fread == NULL)
+        {
+            printf("Cannot open file \n");
 
-	char *end = "SERVER:END";
-    sendto(sockfd, (const char *)end, strlen(end)+1, 0, 
-			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
-} 
+            char *text = "NOTFOUND";
+
+            sendto(sockfd, (const char *)text, strlen(text)+1, 0, 
+        			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
+            
+        }
+        else
+            FILE_FLAG = 1;
+        if (FILE_FLAG)
+        {
+            char x[1024];
+            fscanf(fread, " %1023s", x);
+            sendto(sockfd, (const char *)x, strlen(x)+1, 0, 
+                    (const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
+        }
+
+    } 
       
     return 0; 
 } 
