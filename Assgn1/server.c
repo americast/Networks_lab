@@ -12,7 +12,12 @@
 
 int main() { 
     int sockfd; 
-    struct sockaddr_in servaddr, cliaddr; 
+    struct sockaddr_in servaddr; 
+    struct sockaddr_in cliaddr;
+    // memset(&cliaddr, 0, sizeof(cliaddr)); 
+    int n; 
+    socklen_t len;
+    char buffer[MAXLINE]; 
     int FILE_FLAG = 0;
       
     // Create socket file descriptor 
@@ -23,7 +28,7 @@ int main() {
     } 
       
     memset(&servaddr, 0, sizeof(servaddr)); 
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
+    FILE *fread;
       
     servaddr.sin_family    = AF_INET; 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
@@ -40,36 +45,41 @@ int main() {
     printf("\nServer Running....\n");
     while(1) 
     {  
-        int n; 
-        socklen_t len;
-        char buffer[MAXLINE]; 
 
         len = sizeof(cliaddr);
+        printf("Waiting for client.\n");
         n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-    			( struct sockaddr *) &cliaddr, &len); 
+                (struct sockaddr *) &cliaddr, &len); 
         buffer[n] = '\0'; 
         printf("%s\n", buffer);
         // printf("Port: %d\n",ntohs(cliaddr.sin_port));
-        FILE *fread;
-        fread = fopen(buffer, "r");
-        if (fread == NULL)
+        if (!FILE_FLAG)
         {
-            printf("Cannot open file \n");
+            fread = fopen(buffer, "r");
+            if (fread == NULL)
+            {
+                printf("Cannot open file \n");
 
-            char *text = "NOTFOUND";
+                char *text = "NOTFOUND";
 
-            sendto(sockfd, (const char *)text, strlen(text)+1, 0, 
-        			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
-            
+                sendto(sockfd, (const char *)text, strlen(text)+1, 0, 
+            			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
+                
+            }
+            else
+                FILE_FLAG = 1;
         }
-        else
-            FILE_FLAG = 1;
         if (FILE_FLAG)
         {
             char x[1024];
             fscanf(fread, " %1023s", x);
             sendto(sockfd, (const char *)x, strlen(x)+1, 0, 
                     (const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
+            printf("Sent %s from server\n", x);
+        }
+        else
+        {
+
         }
 
     } 

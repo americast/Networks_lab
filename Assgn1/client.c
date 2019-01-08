@@ -39,12 +39,12 @@ int main() {
     char buffer[MAXLINE]; 
     len = sizeof(cliaddr);
     n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-			( struct sockaddr *) &cliaddr, &len);     
-    close(sockfd); 
-    printf("%s\n", buffer);
+			( struct sockaddr *) &servaddr, &len);     
+    // close(sockfd); 
+    printf("Received: %s\n", buffer);
     FILE *fout;
     fout = fopen("test_out.txt", "w");
-    if (strcmp(buffer,"NOTFOUND"))
+    if (strcmp(buffer,"NOTFOUND")==0)
         printf("File not found\n");
     else
     {
@@ -55,12 +55,14 @@ int main() {
             sendto(sockfd, (const char *)word, strlen(word)+1, 0, 
                     (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
 
-
+            printf("Sent WORD from client.\n");
+            socklen_t len2 = sizeof(servaddr);
             n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-                        ( struct sockaddr *) &cliaddr, &len);
-            if (strcmp(buffer, "END"))
+                        ( struct sockaddr *) &servaddr, &len2);
+            printf("Received: %s\n", buffer);
+            if (strcmp(buffer, "END")==0)
                 return 0;  
-            else if (!strcmp(buffer,"HELLO"))
+            else if (strcmp(buffer,"HELLO"))
             {
                 fprintf(fout, "%s ", buffer);
             }
