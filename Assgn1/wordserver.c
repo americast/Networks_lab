@@ -1,4 +1,4 @@
-// A Simple UDP Server that sends a HELLO message
+// A Server to send words in a file to a client.
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h> 

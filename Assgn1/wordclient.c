@@ -1,4 +1,4 @@
-// A Simple Client Implementation
+// A Client to receive words and write them to a file.
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h> 
@@ -29,7 +29,7 @@ int main() {
     servaddr.sin_addr.s_addr = INADDR_ANY; 
     
     char filename[50];
-    printf("Enter name of file: ");
+    printf("Enter name of file (eg. test): ");
     gets(filename);
       
     sendto(sockfd, (const char *)filename, strlen(filename)+1, 0, 
@@ -47,7 +47,6 @@ int main() {
     FILE *fout;
     char outfilename[50];
     sprintf(outfilename, "%s_out", filename);
-    fout = fopen(outfilename, "w");
     char word_now[MAXLINE];
 
     int count = 1;
@@ -56,7 +55,7 @@ int main() {
     else
     {
         // Mention the output file name
-        printf("Output written to %s\n", outfilename);
+        fout = fopen(outfilename, "w");
         while(1)
         {
             // concatenate count with "WORD"
@@ -73,6 +72,7 @@ int main() {
             // Close file and exit on encountering "END"
             if (strcmp(buffer, "END")==0)
             {
+                printf("Output written to %s\n", outfilename);
                 fclose(fout);
                 return 0;  
             }
