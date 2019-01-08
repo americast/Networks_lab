@@ -45,7 +45,7 @@ int main() {
     len = sizeof(cliaddr);
     n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
             ( struct sockaddr *) &cliaddr, &len);     
-    close(sockfd); 
+    // close(sockfd); 
     printf("Rcv1: %s\n", buffer);
 
     
@@ -54,7 +54,7 @@ int main() {
             (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
     printf("Hello message sent from client\n");
     memset(&cliaddr, 0, sizeof(cliaddr)); 
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
+    n = recvfrom(sockfd, (char *)buffer2, MAXLINE, 0, 
             ( struct sockaddr *) &cliaddr, &len);     
     close(sockfd); 
     printf("Rcv2: %s\n", buffer2);
