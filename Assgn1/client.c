@@ -31,22 +31,33 @@ int main() {
     char *hello = "CLIENT:HELLO"; 
       
     sendto(sockfd, (const char *)hello, strlen(hello), 0, 
-			(const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+            (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
     printf("Hello message sent from client\n"); 
            
-    sendto(sockfd, (const char *)hello, strlen(hello), 0, 
-			(const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-    printf("Hello message sent from client\n");    
+    // sendto(sockfd, (const char *)hello, strlen(hello), 0, 
+    //         (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+    // printf("Hello message sent from client\n");    
 
 
     int n; 
     socklen_t len;
-    char buffer[MAXLINE]; 
+    char buffer[MAXLINE], buffer2[MAXLINE]; 
     len = sizeof(cliaddr);
     n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-			( struct sockaddr *) &cliaddr, &len);     
+            ( struct sockaddr *) &cliaddr, &len);     
     close(sockfd); 
-    printf("%s\n", buffer);
+    printf("Rcv1: %s\n", buffer);
+
+    
+    // memset(&servaddr, 0, sizeof(servaddr)); 
+    sendto(sockfd, (const char *)hello, strlen(hello), 0, 
+            (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+    printf("Hello message sent from client\n");
+    memset(&cliaddr, 0, sizeof(cliaddr)); 
+    n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
+            ( struct sockaddr *) &cliaddr, &len);     
+    close(sockfd); 
+    printf("Rcv2: %s\n", buffer2);
     return 0; 
 } 
 

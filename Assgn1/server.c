@@ -22,7 +22,6 @@ int main() {
     } 
       
     memset(&servaddr, 0, sizeof(servaddr)); 
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
       
     servaddr.sin_family    = AF_INET; 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
@@ -38,21 +37,23 @@ int main() {
     
     printf("\nServer Running....\n");
     while(1) {  
-    int n; 
-    socklen_t len;
-    char buffer[MAXLINE]; 
+        int n; 
+        socklen_t len;
+        char buffer[MAXLINE]; 
 
-    len = sizeof(cliaddr);
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-			( struct sockaddr *) &cliaddr, &len); 
-    buffer[n] = '\0'; 
-    printf("%s\n", buffer);
-    printf("Port: %d\n",ntohs(cliaddr.sin_port));
+        len = sizeof(cliaddr);
+        memset(&cliaddr, 0, sizeof(cliaddr)); 
+        n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
+    			( struct sockaddr *) &cliaddr, &len); 
+        buffer[n] = '\0'; 
+        printf("%s\n", buffer);
+        printf("Port: %d\n",ntohs(cliaddr.sin_port));
 
-	char *end = "SERVER:END";
-    sendto(sockfd, (const char *)end, strlen(end)+1, 0, 
-			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
-} 
+    	char *end = "SERVER:END";
+        sendto(sockfd, (const char *)end, strlen(end)+1, 0, 
+    			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
+
+    } 
       
     return 0; 
 } 
