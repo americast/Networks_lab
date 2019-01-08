@@ -14,11 +14,11 @@ int main() {
     int sockfd; 
     struct sockaddr_in servaddr; 
     struct sockaddr_in cliaddr;
-    // memset(&cliaddr, 0, sizeof(cliaddr)); 
     int n; 
     socklen_t len;
     char buffer[MAXLINE]; 
-    int FILE_FLAG = 0;
+    int FILE_FLAG = 0;      // 0 indicates file is not open
+                            // 1 indicates file is closed
       
     // Create socket file descriptor 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -28,8 +28,9 @@ int main() {
     } 
       
     memset(&servaddr, 0, sizeof(servaddr)); 
-    FILE *fread;
-      
+    FILE *fread;        // variable for file handling
+    
+    // set server port
     servaddr.sin_family    = AF_INET; 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
     servaddr.sin_port = htons(8181); 
@@ -40,7 +41,7 @@ int main() {
     { 
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
-    } 
+    }
     
     printf("\nServer Running....\n");
     while(1) 
@@ -52,7 +53,7 @@ int main() {
                 (struct sockaddr *) &cliaddr, &len); 
         buffer[n] = '\0'; 
         printf("%s\n", buffer);
-        // printf("Port: %d\n",ntohs(cliaddr.sin_port));
+
         if (!FILE_FLAG)
         {
             fread = fopen(buffer, "r");
@@ -76,10 +77,13 @@ int main() {
             sendto(sockfd, (const char *)x, strlen(x)+1, 0, 
                     (const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
             printf("Sent %s from server\n", x);
-        }
-        else
-        {
 
+            // Close the file if END is encountered to faciliate an always on server
+            if (strcmp(x, "END")==0)
+            {
+                fclose(fread);
+                FILE_FLAG = 0;
+            }
         }
 
     } 
