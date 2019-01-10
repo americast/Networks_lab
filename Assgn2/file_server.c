@@ -113,22 +113,36 @@ int main()
 		recv(newsockfd, buf, 100, 0);
 		printf("Opening file %s\n", buf);
 
-		char buf2[1000];
-		strcpy(buf2,"Message from server");
+		char buf_temp[1000];
 
 		int file = open(buf, O_RDONLY);
 
 		if (file == -1)
 		{
 			perror("Unable to open file ");
-			close(newsockfd);
+			// close(newsockfd);
 			continue;
 		}
 		else
 		{
-			send(newsockfd, buf, strlen(buf) + 1, 0);
 			printf("File opened.\n");
 
+			while(1)
+			{
+				printf("Reading from file\n");
+				int read_bytes = read(file, buf_temp, 1000);
+				printf("No read: %d\n", read_bytes);
+				if (read_bytes <= 0)
+				{
+					printf("Reading complete\n");
+					close(file);
+					close(newsockfd);
+					break;
+				}
+				send(newsockfd, buf_temp, 1000, 0);
+				printf("Data sent from server\n");
+			}
+			continue;
 		}
 
 		/* We initialize the buffer, copy the message to it,

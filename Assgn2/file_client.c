@@ -11,6 +11,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
+
+void delay(unsigned int mseconds)
+{
+    clock_t goal = mseconds + clock();
+    while (goal > clock());
+}
 
 int main()
 {
@@ -68,14 +75,51 @@ int main()
 	printf("Sent filename %s from client\n", buf);
 	
 
-    // fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
 
 	memset(buf, 0, 100);
-	printf("Receiving from server\n");
-	int n = recv(sockfd, buf, 100, 0);
+	delay(1000);
+	int file, FILE_FLAG = 0;
 
-	if (n == -1 && errno == ECONNRESET)
-		printf("File not found.\n");
+	char buf_temp[1000];
+	for (i = 1; ; i++)
+	{
+    	fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
+		printf("Receiving from server\n");
+		int n = recv(sockfd, buf_temp, 1000, 0);
+		printf("Received: %d\n",n);
+		if (i == 1)
+		{
+			if (n == -1 && errno == EWOULDBLOCK)
+			{
+				printf("Here1\n");
+				printf("File not found.\n");
+				break;
+			}
+			else
+			{
+				printf("Here2\n");
+				file = open("out", O_CREAT | O_WRONLY);
+				FILE_FLAG = 1;
+			}
+		}
+		else
+		{
+			if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
+			{
+				printf("Here3\n");
+				printf("Reading complete\n");
+				close(file);
+				FILE_FLAG = 0;
+				break;
+			}
+		}
+		if (FILE_FLAG)
+		{
+			printf("Here4\n");
+			write(file, buf_temp, 1000);
+		}
+
+	}
 	// printf("%s\n", buf);
 
 	
