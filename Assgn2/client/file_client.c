@@ -76,9 +76,9 @@ int main()
 	
 
 
-	delay(1000000);
-	int file, FILE_FLAG = 0;
-	int count_bytes = 0, count_words = 0;
+	delay(100000);
+	int file, FILE_FLAG = 0, byte_count = 0, word_count = 0;
+	int read_word = 1;
 
 	for (i = 1; ; i++)
 	{
@@ -87,19 +87,35 @@ int main()
     	fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
 		printf("Receiving from server\n");
 		int n = recv(sockfd, buf_temp, 5, 0);
-		printf("Received: %d\n",n);
+		if (n > 0)
+		{
+			int i;
+			byte_count += n;
+			for (i = 0; i < n; i++)
+			{
+				if (buf_temp[i] == ',' || buf_temp[i] == ';' || buf_temp[i] == ':' || buf_temp[i] == '.' || buf_temp[i] == ' ' || buf_temp[i] == '\t')
+				{
+					read_word = 1;
+					continue;
+				}
+				if (read_word)
+				{
+					word_count+=1;
+					read_word = 0;
+				}
+			}
+		}
+		// printf("Received: %d\nlength: %d\n",n, strlen(buf_temp));
 		if (i == 1)
 		{
 			if (n == -1 && errno == EWOULDBLOCK)
 			{
-				printf("Here1\n");
 				printf("File not found.\n");
 				break;
 			}
 			else
 			{
-				printf("Here2\n");
-				file = open("out", O_CREAT | O_WRONLY);
+				file = open(buf, O_CREAT | O_WRONLY);
 				FILE_FLAG = 1;
 			}
 		}
@@ -107,7 +123,6 @@ int main()
 		{
 			if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
 			{
-				printf("Here3\n");
 				printf("Reading complete\n");
 				close(file);
 				FILE_FLAG = 0;
@@ -115,13 +130,10 @@ int main()
 			}
 		}
 		if (FILE_FLAG)
-		{
-			printf("Here4\n");
 			write(file, buf_temp, strlen(buf_temp)+1);
-		}
 
 	}
-	// printf("%s\n", buf);
+	printf("No. of bytes: %d\nNo. of words: %d\n", byte_count, word_count);
 
 	
 	close(sockfd);
