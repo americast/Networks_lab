@@ -1,4 +1,4 @@
-// A Client to receive words and write them to a file.
+// The client program
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h> 
@@ -9,6 +9,7 @@
 #include <netinet/in.h> 
   
 #define MAXLINE 1024 
+
 
 int main() { 
     int sockfd; 
@@ -22,69 +23,85 @@ int main() {
     } 
   
     memset(&servaddr, 0, sizeof(servaddr)); 
+    memset(&cliaddr, 0, sizeof(cliaddr)); 
       
     // Server information 
     servaddr.sin_family = AF_INET; 
     servaddr.sin_port = htons(8181); 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
-    
-    char filename[50];
-    printf("Enter name of file (eg. test): ");
-    gets(filename);
       
-    sendto(sockfd, (const char *)filename, strlen(filename)+1, 0, 
-			(const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-    printf("Filename sent from client\n"); 
-           
-    int n; 
-    socklen_t len;
+    int n;
+    socklen_t len; 
+
+    // Enter the file name from user
+    char file[MAXLINE];
+    printf("Enter the file name\n");
+    scanf("%s",file);
+
+    
+    // Send the file name to Server
+    sendto(sockfd, (const char *)file, strlen(file), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+    printf("File name sent from client\n");   
+
+    // buffer will store data received from server
     char buffer[MAXLINE]; 
-    len = sizeof(cliaddr);
-    n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-			( struct sockaddr *) &servaddr, &len);     
+    len = sizeof(servaddr);
+    n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, ( struct sockaddr *) &servaddr, &len); 
+    buffer[n] = '\0'; 
 
-    printf("Received: %s\n", buffer);
-    FILE *fout;
-    char outfilename[50];
-    sprintf(outfilename, "%s_out", filename);
-    char word_now[MAXLINE];
-
-    int count = 1;
-    if (strcmp(buffer,"NOTFOUND")==0)
-        printf("File not found\n");
-    else
+    //If the server does not find file with given name in local directory, then exit program
+    if(!strcmp("NOTFOUND",buffer))
     {
-        // Mention the output file name
-        fout = fopen(outfilename, "w");
-        while(1)
-        {
-            // concatenate count with "WORD"
-            sprintf(word_now, "WORD%d", count++);
-              
-            sendto(sockfd, (const char *)word_now, strlen(word_now)+1, 0, 
-                    (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
-
-            printf("Sent %s from client.\n", word_now);
-            socklen_t len2 = sizeof(servaddr);
-            n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, 
-                        (struct sockaddr *) &servaddr, &len2);
-            printf("Received: %s\n", buffer);
-            // Close file and exit on encountering "END"
-            if (strcmp(buffer, "END")==0)
-            {
-                printf("Output written to %s\n", outfilename);
-                fclose(fout);
-                return 0;  
-            }
-            // Write to file if anything other than "HELLO" or "END" is received
-            else if (strcmp(buffer,"HELLO"))
-            {
-                fprintf(fout, "%s ", buffer);
-            }
-        }
-            
+      printf("File Not Found");
+      exit(EXIT_FAILURE);
     }
+
+    //If server finds the file in local directory
+    if(!strcmp("HELLO",buffer))
+    {
+
+      //Create a file of name output.txt
+      printf("Received \"HELLO\" from Server. Creating output.txt\n");
+      FILE *fp = fopen("output.txt","w");
+      int i = 0;
+
+      while(1)
+      { 
+        i++;
+
+        // word variable shall store WORDi to be retreived from server. Finding value of word:
+        char word[MAXLINE];
+        char temp[MAXLINE];
+        sprintf(temp, "%d", i);
+        strcpy(word,"WORD");
+        strcat(word,temp);
+
+        printf("Requesting %s from server\n",word);
+        //Request the WORDi from server
+        sendto(sockfd, (const char *)word, strlen(word), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+
+        //WORDi received from server is stored in buffer
+        len = sizeof(servaddr);
+        n = recvfrom(sockfd, (char *)buffer, MAXLINE, 0, ( struct sockaddr *) &servaddr, &len); 
+        buffer[n] = '\0'; 
+
+        printf("Received \"%s\" from server\n",buffer);
+        //If buffer == "END", then end of file is reached. client closes output.txt and exits
+        if(!strcmp(buffer,"END"))
+        {
+          fclose(fp);
+          printf("Closed file.\n");
+          break;
+        }
+
+        //If end of file is not reached, write the word in output.txt
+        else
+        {
+          fprintf(fp,"%s\n",buffer);
+        }   
+      }
+    }
+
+    close(sockfd); 
     return 0; 
 }
- 
-

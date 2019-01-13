@@ -76,16 +76,17 @@ int main()
 	
 
 
-	memset(buf, 0, 100);
-	delay(1000);
+	delay(1000000);
 	int file, FILE_FLAG = 0;
+	int count_bytes = 0, count_words = 0;
 
-	char buf_temp[1000];
 	for (i = 1; ; i++)
 	{
+		char buf_temp[6];
+		memset(buf_temp, 0, 6);
     	fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
 		printf("Receiving from server\n");
-		int n = recv(sockfd, buf_temp, 1000, 0);
+		int n = recv(sockfd, buf_temp, 5, 0);
 		printf("Received: %d\n",n);
 		if (i == 1)
 		{
@@ -116,7 +117,7 @@ int main()
 		if (FILE_FLAG)
 		{
 			printf("Here4\n");
-			write(file, buf_temp, 1000);
+			write(file, buf_temp, strlen(buf_temp)+1);
 		}
 
 	}
