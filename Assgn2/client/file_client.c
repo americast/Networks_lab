@@ -82,11 +82,11 @@ int main()
 
 	for (i = 1; ; i++)
 	{
-		char buf_temp[6];
-		memset(buf_temp, 0, 6);
-    	fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
+		char buf_temp[100];
+		memset(buf_temp, 0, 100);
+    	// fcntl(sockfd, F_SETFL, O_NONBLOCK); /* Change the socket into non-blocking state	*/
 		printf("Receiving from server\n");
-		int n = recv(sockfd, buf_temp, 5, 0);
+		int n = recv(sockfd, buf_temp, 100, 0);
 		if (n > 0)
 		{
 			int i;
@@ -108,7 +108,8 @@ int main()
 		// printf("Received: %d\nlength: %d\n",n, strlen(buf_temp));
 		if (i == 1)
 		{
-			if (n == -1 && errno == EWOULDBLOCK)
+			// printf("n is: %d\n", n);
+			if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
 			{
 				printf("File not found.\n");
 				break;
@@ -133,7 +134,8 @@ int main()
 			write(file, buf_temp, strlen(buf_temp)+1);
 
 	}
-	printf("No. of bytes: %d\nNo. of words: %d\n", byte_count, word_count);
+	if (byte_count > 0)
+		printf("The file transfer is successful.\nSize of file = %d bytes\nNo. of words = %d\n", byte_count, word_count);
 
 	
 	close(sockfd);

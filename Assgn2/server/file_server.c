@@ -119,7 +119,7 @@ int main()
 		if (file == -1)
 		{
 			perror("Unable to open file ");
-			// close(newsockfd);
+			close(newsockfd);
 			continue;
 		}
 		else
