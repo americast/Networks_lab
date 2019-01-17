@@ -1,11 +1,8 @@
 /*
-			NETWORK PROGRAMMING WITH SOCKETS
+TCP Server
 
-In this program we illustrate the use of Berkeley sockets for interprocess
-communication across the network. We show the communication between a server
-process and a client process.
-
-
+Sayan Sinha
+16CS10048
 */
 
 #include <stdio.h> 
@@ -14,13 +11,13 @@ process and a client process.
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
-/* The following three files must be included for network programming */
 #include <sys/socket.h> 
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-			/* THE SERVER PROCESS */
+#define BUF_SIZE 3
+
+
 
 int main()
 {
@@ -31,89 +28,46 @@ int main()
 	int i;
 	char buf[100];		/* We will use this buffer for communication */
 
-	/* The following system call opens a socket. The first parameter
-	   indicates the family of the protocol to be followed. For internet
-	   protocols we use AF_INET. For TCP sockets the second parameter
-	   is SOCK_STREAM. The third parameter is set to 0 for user
-	   applications.
-	*/
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		perror("Cannot create socket\n");
 		exit(0);
 	}
 
-	/* The structure "sockaddr_in" is defined in <netinet/in.h> for the
-	   internet family of protocols. This has three main fields. The
- 	   field "sin_family" specifies the family and is therefore AF_INET
-	   for the internet family. The field "sin_addr" specifies the
-	   internet address of the server. This field is set to INADDR_ANY
-	   for machines having a single IP address. The field "sin_port"
-	   specifies the port number of the server.
-	*/
 	serv_addr.sin_family		= AF_INET;
 	serv_addr.sin_addr.s_addr	= INADDR_ANY;
-	serv_addr.sin_port		= htons(20000);
+	serv_addr.sin_port			= htons(20000);  // Assign port 20000
 
-	/* With the information provided in serv_addr, we associate the server
-	   with its port using the bind() system call. 
-	*/
 	if (bind(sockfd, (struct sockaddr *) &serv_addr,
 					sizeof(serv_addr)) < 0) {
-		perror("Unable to bind local address\n");
+		perror("Unable to bind local address");
 		exit(0);
 	}
 
-	listen(sockfd, 5); /* This specifies that up to 5 concurrent client
-			      requests will be queued up while the system is
-			      executing the "accept" system call below.
-			   */
+	listen(sockfd, 5);	// upto 5 concurrent clients can be handled
 
-	/* In this program we are illustrating an iterative server -- one
-	   which handles client connections one by one.i.e., no concurrency.
-	   The accept() system call returns a new socket descriptor
-	   which is used for communication with the server. After the
-	   communication is over, the process comes back to wait again on
-	   the original socket descriptor.
-	*/
-	while (1) {
+	// Always on server
+	while (1)
+	{
 
-		/* The accept() system call accepts a client connection.
-		   It blocks the server until a client request comes.
-
-		   The accept() system call fills up the client's details
-		   in a struct sockaddr which is passed as a parameter.
-		   The length of the structure is noted in clilen. Note
-		   that the new socket descriptor returned by the accept()
-		   system call is stored in "newsockfd".
-		*/
 		clilen = sizeof(cli_addr);
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr,
-					&clilen) ;
+					&clilen) ;	// blocks server for this client
 
 		if (newsockfd < 0) {
-			perror("Accept error\n");
+			perror("Accept error");
 			exit(0);
 		}
 		else
 			printf("Connection established\n");
 
-		/* We now receive a message from the client. For this example
-  		   we make an assumption that the entire message sent from the
-  		   client will come together. In general, this need not be true
-		   for TCP sockets (unlike UDPi sockets), and this program may not
-		   always work (for this example, the chance is very low as the 
-		   message is very short. But in general, there has to be some
-	   	   mechanism for the receiving side to know when the entire message
-		  is received. Look up the return value of recv() to see how you
-		  can do this.
-		*/
-
 
 		printf("\nWaiting for filename from client\n"); 
+		
+		// Receive filename from client
 		recv(newsockfd, buf, 100, 0);
 		printf("Opening file %s\n", buf);
 
-
+		// Open filename received from client
 		int file = open(buf, O_RDONLY);
 
 		if (file == -1)
@@ -128,16 +82,12 @@ int main()
 
 			while(1)
 			{
-				char buf_temp[6];
-				memset(buf_temp, 0, 6);
+				char buf_temp[BUF_SIZE];
+				memset(buf_temp, 0, BUF_SIZE);
 				printf("Reading from file\n");
-				int read_bytes = read(file, buf_temp, 5);
-				printf("No read: %d\n", read_bytes);
-				printf("buf_temp: %s\n", buf_temp);
-				printf("buf_temp's len: %d\n", strlen(buf_temp));
-				printf("buf_temp[4]: %d\n", buf_temp[4]);
-				// buf_temp[5] = '\0';
-				// memset(buf_temp, 0, 6);
+				int read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+
+				// Read from file complete
 				if (read_bytes <= 0)
 				{
 					printf("Reading complete\n");
@@ -145,19 +95,18 @@ int main()
 					close(newsockfd);
 					break;
 				}
+
+				// find length of buffer read
 				int len = strlen(buf_temp);
+
+				// send to client
 				send(newsockfd, buf_temp, strlen(buf_temp), 0);
 				printf("Data sent from server\n");
 			}
 			continue;
 		}
 
-		/* We initialize the buffer, copy the message to it,
-			and send the message to the client. 
-		*/
-		
-
-
+		// Close the socket
 		close(newsockfd);
 	}
 }
