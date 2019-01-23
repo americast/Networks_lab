@@ -23,7 +23,7 @@ main()
 	gets(buf);
 
 	/* Opening a socket is exactly similar to the server process */
-	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		perror("Unable to create socket\n");
 		exit(0);
 	}
@@ -43,17 +43,11 @@ main()
 
 	serv_addr.sin_family	= AF_INET;
 	inet_aton("127.0.0.1", &serv_addr.sin_addr);
-	serv_addr.sin_port	= htons(6010);
+	serv_addr.sin_port	= htons(8000);
 
 	/* With the information specified in serv_addr, the connect()
 	   system call establishes a connection with the server process.
 	*/
-	if ((connect(sockfd, (struct sockaddr *) &serv_addr,
-						sizeof(serv_addr))) < 0) {
-		perror("Unable to connect to server\n");
-		exit(0);
-	}
-
 	/* After connection, the client can send or receive messages.
 	   However, please note that recv() will block when the
 	   server is not sending and vice versa. Similarly send() will
@@ -65,24 +59,15 @@ main()
 
 	
 	// strcpy(buf,"Message from client");
-	send(sockfd, buf, strlen(buf) + 1, 0);
+	sendto(sockfd, (const char *)buf, strlen(buf)+1, 0, (const struct sockaddr *) &serv_addr, sizeof(serv_addr)); 
 	
 	printf("Waiting for server\n");
-	while(1)
-	{
-		char buf[100];
-		int i = 0;
-		for (i = 0; i<100; i++)
-			buf[i] = '\0';
-		int n = recv(sockfd, buf, 100, 0);
-		if (n<=0)
-			break;
-		else
-		{
-			printf("IPs recieved: %s\n", buf);
-		}
-	}
-
+	char buf2[100];
+	for (i = 0; i<100; i++)
+		buf2[i] = '\0';
+	int len = sizeof(serv_addr);
+	int n = recvfrom(sockfd, buf2, 100, 0, ( struct sockaddr *) &serv_addr, &len);
+	printf("IPs recieved: %s\n", buf2);
 
 	close(sockfd);
 }
