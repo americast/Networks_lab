@@ -1,5 +1,5 @@
 /*
-TCP Client
+BoW Client
 
 Sayan Sinha
 16CS10048
@@ -16,27 +16,26 @@ Sayan Sinha
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
-#define PORT 8000
-#define BUF_SIZE 6
+#define PORT_TCP 8000
+#define BUF_SIZE 100
 
 int main()
 {
-  int     sockfd ;
+  int     sockfd ;  // Define sockets
   struct sockaddr_in  serv_addr;
 
   int i;
   char buf[100];
 
-  /* Opening a socket is exactly similar to the server process */
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  // Open TCP socket
     perror("Unable to create socket\n");
-    exit(0);
+    exit(EXIT_FAILURE);
   }
 
   // Set server address
   serv_addr.sin_family  = AF_INET;
   inet_aton("127.0.0.1", &serv_addr.sin_addr);
-  serv_addr.sin_port  = htons(PORT);
+  serv_addr.sin_port  = htons(PORT_TCP);
 
   // Connect to server and handshake
   if ((connect(sockfd, (struct sockaddr *) &serv_addr,
@@ -47,34 +46,22 @@ int main()
   else
     printf("Connection established\n");
 
-  // Take input from user about filename
-  // printf("Enter file name: ");
-  // gets(buf);
-
-  // // Send filename to server
-  // send(sockfd, buf, strlen(buf) + 1, 0);
-  // printf("Sent filename %s from client\n", buf);
-  
-  // // Delay ensures server gets enough time to send data to pipe
-  // delay(100000);
-  int word_count = 0;
-  int read_word = 1;
+  int word_count = 0, read_word = 1;
 
   for (i = 1; ; i++)  // use i as a count variable
   {
     char buf_temp[BUF_SIZE+1];
     memset(buf_temp, 0, BUF_SIZE+1);
 
-    buf_temp[BUF_SIZE] = '\0';
+    buf_temp[BUF_SIZE] = '\0';  // Keep the last position null
 
     printf("Receiving from server\n");
-    int n = recv(sockfd, buf_temp, BUF_SIZE, 0);
-    printf("%d\n", n);
+    int n = recv(sockfd, buf_temp, BUF_SIZE, 0);  // Receive from server
+    printf("No of bytes received: %d\n", n);
     if (n > 0)
     {
       int i;
-      // byte_count += n;
-      for (i = 0; i < n; i++)
+      for (i = 0; i < n; i++)  // Number of words counter
       {
         if (buf_temp[i] != '\n' && buf_temp[i] != '\0' && read_word)
         {
@@ -82,15 +69,14 @@ int main()
           read_word = 0;
           continue;
         }
-        if (buf_temp[i] == '\n')
+        if (buf_temp[i] == '\n' || buf_temp[i] == '\0')
           read_word = 1;
       }
     }
     else
       break;
   }
-  // if (byte_count > 0)
-  printf("The file transfer is successful.\n\nNo. of words = %d\n", word_count);
+  printf("\nNo. of words = %d\n", word_count);
 
   // Close the socket
   close(sockfd);
