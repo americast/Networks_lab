@@ -16,7 +16,7 @@ Sayan Sinha
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
-#define PORT_TCP 8000
+#define PORT_TCP 8002
 #define BUF_SIZE 100
 
 int main()
@@ -46,8 +46,7 @@ int main()
   else
     printf("Connection established\n");
 
-  int word_count = 0, read_word = 1;
-
+  int word_count = 0, read_word = 1, null_count = 0, done_flag = 0;
   for (i = 1; ; i++)  // use i as a count variable
   {
     char buf_temp[BUF_SIZE+1];
@@ -58,23 +57,34 @@ int main()
     printf("Receiving from server\n");
     int n = recv(sockfd, buf_temp, BUF_SIZE, 0);  // Receive from server
     printf("No of bytes received: %d\n", n);
-    if (n > 0)
+    int i;
+    for (i = 0; i < n; i++)  // Number of words counter
     {
-      int i;
-      for (i = 0; i < n; i++)  // Number of words counter
+      if (buf_temp[i] == '\0')
+        null_count++;
+      if (buf_temp[i] != '\0' && null_count > 0)
+        null_count = 0;
+      if (null_count >= 2)
       {
-        if (buf_temp[i] != '\n' && buf_temp[i] != '\0' && read_word)
-        {
-          word_count++;
-          read_word = 0;
-          continue;
-        }
-        if (buf_temp[i] == '\n' || buf_temp[i] == '\0')
-          read_word = 1;
+        done_flag = 1;
+        break;
       }
+      if (i < n - 1  && buf_temp[i] == '\0' && buf_temp[i+1] == '\0')
+      {
+        done_flag = 1;
+        break;
+      }
+      if (buf_temp[i] != '\n' && buf_temp[i] != '\0' && read_word)
+      {
+        word_count++;
+        read_word = 0;
+        continue;
+      }
+      if (buf_temp[i] == '\n' || buf_temp[i] == '\0')
+        read_word = 1;
     }
-    else
-      break;
+  if (done_flag)
+    break;
   }
   printf("\nNo. of words = %d\n", word_count);
 

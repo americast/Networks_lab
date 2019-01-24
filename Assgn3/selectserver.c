@@ -16,8 +16,8 @@ Sayan Sinha
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#define PORT_UDP 8000
-#define PORT_TCP 8000
+#define PORT_UDP 8001
+#define PORT_TCP 8002
 #define BUF_SIZE 100
 
 
@@ -94,14 +94,16 @@ int main()
 				char *IPbuffer; 
 
 				int i;
-
-				for (i = 0; i < lh->h_length; i++)
+				if (lh)
 				{
-					if (lh->h_addr_list[i] == NULL)
-						break;
-					IPbuffer = inet_ntoa(*((struct in_addr*) 
-				                           lh->h_addr_list[i])); 
-					sendto(sockfd_udp, IPbuffer, strlen(IPbuffer) + 1, 0, (const struct sockaddr *) &cli_addr, sizeof(cli_addr));  // Send received IP address to client
+					for (i = 0; i < lh->h_length; i++)
+					{
+						if (lh->h_addr_list[i] == NULL)
+							break;
+						IPbuffer = inet_ntoa(*((struct in_addr*) 
+					                           lh->h_addr_list[i])); 
+						sendto(sockfd_udp, IPbuffer, strlen(IPbuffer) + 1, 0, (const struct sockaddr *) &cli_addr, sizeof(cli_addr));  // Send received IP address to client
+					}
 				}
 				printf("\nAll IPs have been sent\n");
 				sendto(sockfd_udp, "", 0, 0, (const struct sockaddr *) &cli_addr, sizeof(cli_addr));  // Send blank message to mark end of sending
@@ -134,9 +136,10 @@ int main()
 
 				FILE *fp = fopen("word.txt", "r");  // Open file using pointer
 
-				if (fp == -1)
+				if (!fp)
 				{
 					perror("Unable to open file ");
+					send(newsockfd, "\0", 2, 0);
 					close(newsockfd);
 					continue;
 				}
@@ -155,8 +158,8 @@ int main()
 						if (strlen(buf_temp)==0)
 						{
 							printf("Reading complete\n");
-							send(newsockfd, "\0", 1, 0);
-							close(fp);			// Close file pointer
+							send(newsockfd, "\0", 2, 0);
+							fclose(fp);			// Close file pointer
 							close(newsockfd);	// Close connection
 							break;
 						}

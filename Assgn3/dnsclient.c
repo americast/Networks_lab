@@ -15,7 +15,7 @@ Sayan Sinha
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#define PORT_UDP 8000
+#define PORT_UDP 8001
 
 main()
 {
@@ -44,15 +44,17 @@ main()
 	char buf2[100];
 	for (i = 0; i<100; i++)  // Fill with zeros
 		buf2[i] = '\0';
-	int len = sizeof(serv_addr);
+	int len = sizeof(serv_addr), counter = 0;
 	while(1)
 	{
 		int n = recvfrom(sockfd, buf2, 100, 0, ( struct sockaddr *) &serv_addr, &len); // Receive IPs from server
 		if (n==0)
 			break;
+		counter++;
 		printf("IP recieved: %s\n", buf2);
 	}
-
+	if (counter == 0)
+		printf("No IPs found\n");
 	close(sockfd);  // Close connection
 }
 
