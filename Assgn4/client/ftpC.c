@@ -174,9 +174,110 @@ int main()
 				}
 
 			}
-
 		}
 
+
+
+
+
+
+		if (strcmp(comm1, "put")==0)
+		{
+			printf("In put\n");
+			pid_t p = fork();
+			if (p < 0)
+			{
+				perror("Unable to fork ");
+				exit(EXIT_FAILURE);
+			}
+			else if (p == 0)	// child
+			{
+				int sockfd_put;
+				struct sockaddr_in	cli_addr_get, serv_addr_get;
+				if ((sockfd_put = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+					perror("Cannot create socket\n");
+					exit(0);
+				}
+
+				serv_addr_get.sin_family		= AF_INET;
+				serv_addr_get.sin_addr.s_addr	= INADDR_ANY;
+				serv_addr_get.sin_port			= htons(PORT_Y);  // Assign port 20000
+
+				if (bind(sockfd_put, (struct sockaddr *) &serv_addr_get,
+								sizeof(serv_addr_get)) < 0) {
+					perror("Unable to bind local address");
+					exit(0);
+				}
+
+				listen(sockfd_put, 5);
+
+				int clilen = sizeof(cli_addr);
+				int newsockfd_put = accept(sockfd_put, (struct sockaddr *) &cli_addr,
+							&clilen) ;	// blocks server for this client
+
+				int file = open(comm2, O_RDONLY);
+
+				if (file < 0)
+				{
+					printf("File not found\n");
+					exit(EXIT_FAILURE);
+				}
+
+
+				while(1)
+				{
+					char buf_temp[BUF_SIZE];
+					memset(buf_temp, 0, BUF_SIZE);
+					printf("Reading from file\n");
+					int read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+					buf_temp[BUF_SIZE] = '\0';
+					printf("Read: %s\n", buf_temp);
+					// Read from file complete
+					if (read_bytes <= 0)
+					{
+						printf("Reading complete\n");
+						close(file);
+						close(sockfd_put);
+						break;
+					}
+
+					// find length of buffer read
+					int len = strlen(buf_temp);
+					printf("len: %d\n", len);
+					// send to server
+
+					send(newsockfd_put, buf_temp, strlen(buf_temp), 0);
+					printf("Data sent from client\n");
+				}
+
+				close(sockfd_put);
+				exit(0);
+			}
+			else 		// parent
+			{
+				int return_code[]={0};
+				int n = recv(sockfd, return_code, sizeof(int), 0);
+				if (n == 0)
+				{
+					printf("Connection broken\n");
+
+				}
+				if (return_code[0] == 550)
+				{
+					int status;
+					printf("Some error occured\n");
+					kill(p, SIGKILL);
+				}
+				else if (return_code[0] == 250)
+				{
+					int status;
+					printf("File transfer successfull\n");
+					kill(p, SIGTERM);
+				}
+
+			}
+
+		}
 	}
 }
 
