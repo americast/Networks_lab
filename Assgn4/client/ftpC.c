@@ -63,19 +63,6 @@ int main()
 		gets(command);
 
 		send(sockfd, command, strlen(command)+1, 0);
-		if (strcmp(command,"quit")==0)
-		{
-			int return_code[]={0};
-			int n = recv(sockfd, return_code, sizeof(int), 0);
-			if (return_code[0] == 421)
-			{
-				close(sockfd);
-				break;
-			}
-			else
-				continue;
-		}
-
 		char comm1[100], comm2[100];
 		sscanf(command, "%s", comm1);
 		int pos = strlen(comm1);
@@ -102,6 +89,13 @@ int main()
 				serv_addr_get.sin_family		= AF_INET;
 				serv_addr_get.sin_addr.s_addr	= INADDR_ANY;
 				serv_addr_get.sin_port			= htons(PORT_Y);  // Assign port 20000
+
+				if (setsockopt(sockfd_get, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+				{
+    				perror("setsockopt(SO_REUSEADDR) failed");
+    				exit(EXIT_FAILURE);
+				}
+
 
 				if (bind(sockfd_get, (struct sockaddr *) &serv_addr_get,
 								sizeof(serv_addr_get)) < 0) {
@@ -183,6 +177,19 @@ int main()
 			}
 		}
 
+		else if (strcmp(command,"quit")==0)
+		{
+			int return_code[]={0};
+			int n = recv(sockfd, return_code, sizeof(int), 0);
+			if (return_code[0] == 421 || return_code[0] == 503)
+			{
+				close(sockfd);
+				exit(0);
+			}
+			else
+				continue;
+		}
+
 
 		else if (strcmp(comm1, "put")==0)
 		{
@@ -205,6 +212,12 @@ int main()
 				serv_addr_get.sin_family		= AF_INET;
 				serv_addr_get.sin_addr.s_addr	= INADDR_ANY;
 				serv_addr_get.sin_port			= htons(PORT_Y);  // Assign port 20000
+
+				if (setsockopt(sockfd_put, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+				{
+    				perror("setsockopt(SO_REUSEADDR) failed");
+    				exit(EXIT_FAILURE);
+				}
 
 				if (bind(sockfd_put, (struct sockaddr *) &serv_addr_get,
 								sizeof(serv_addr_get)) < 0) {
@@ -302,9 +315,32 @@ int main()
 			}	
 		}
 
+		else if (strcmp(comm1, "port")==0)
+		{
+			printf("sent port\n");
+			int return_code[]={0};
+			int n = recv(sockfd, return_code, sizeof(int), 0);
+			if (return_code[0] != 200)
+			{
+				printf("Error: closing all connections\n");
+				close(sockfd);
+				exit(EXIT_FAILURE);
+			}	
+		}
 		else
 		{
-
+			int return_code[]={0};
+			int n = recv(sockfd, return_code, sizeof(int), 0);
+			if (return_code[0] == 502)
+			{
+				printf("Error: command not found\n");
+			}
+			else if (return_code[0] == 503)
+			{
+				printf("Port not set\n");
+				close(sockfd);
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 }

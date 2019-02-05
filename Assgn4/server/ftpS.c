@@ -17,7 +17,8 @@ Sayan Sinha
 
 #define BUF_SIZE 3
 #define PORT_X 50000
-#define PORT_Y 55000
+
+int PORT_Y = 55000;
 
 
 int main()
@@ -62,17 +63,19 @@ int main()
 			printf("Connection established\n");
 
 		int return_code[]={0};
+		int FIRST_FLAG = 1;
 
 		while(1)
 		{
 			char command[100], comm1[100], comm2[100];
-			printf("\nWaiting for client\n"); 
+			printf("\nWaiting for command from client\n"); 
 		
 			// Receive filename from client
 			int n = recv(newsockfd, command, 100, 0);
 			if (!n)
 			{
 				close(newsockfd);
+				FIRST_FLAG = 1;
 				break;
 			}
 			printf("Received data from client\n");
@@ -80,6 +83,38 @@ int main()
 			int pos = strlen(comm1);
 			for(;command[pos]==' ';pos++);
 			sscanf(command+pos, "%s", comm2);
+
+			if (FIRST_FLAG)
+			{
+				if (strcmp(comm1, "port")==0)
+				{
+					PORT_Y = atoi(comm2);
+					if (PORT_Y > 1024 && PORT_Y < 65535)
+					{
+						printf("Valid port\n");
+						return_code[0] = 200;
+						send(newsockfd, return_code, sizeof(int), 0);
+						FIRST_FLAG = 0;
+						continue;
+					}
+					else
+					{
+						printf("Invalid port\n");
+						return_code[0] = 550;
+						send(newsockfd, return_code, sizeof(int), 0);
+						close(newsockfd);
+						break;
+					}
+				}
+				else
+				{
+					printf("Port not set\n");
+					return_code[0] = 503;
+					send(newsockfd, return_code, sizeof(int), 0);
+					close(newsockfd);
+					break;
+				}
+			}
 			
 			if (strcmp(comm1, "get")==0)
 			{
@@ -282,12 +317,16 @@ int main()
 				send(newsockfd, return_code, sizeof(int), 0);
 				printf("Closing Connection\n");	
 				close(newsockfd);
+				FIRST_FLAG = 1;
 				break;
 			}
 
 			else
 			{
-
+				return_code[0] = 502;
+				send(newsockfd, return_code, sizeof(int), 0);
+				printf("Closing Connection\n");	
+				continue;
 			}
 		}
 	}
