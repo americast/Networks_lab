@@ -104,8 +104,10 @@ int main()
 					{
 						/* Opening a socket is exactly similar to the server process */
 						if ((sockfd_get = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-							perror("Unable to create socket\n");
-							exit(0);
+							perror("Unable to create socket");
+							return_code[0] = 550;
+							send(newsockfd, return_code, sizeof(int), 0);
+							exit(EXIT_FAILURE);
 						}
 
 						serv_addr.sin_port	= htons(PORT_Y);
@@ -155,90 +157,137 @@ int main()
 
 
 
-			if (strcmp(comm1, "put")==0)
+			else if (strcmp(comm1, "put")==0)
 			{
 				printf("In put\n");
 				printf("File to open %s\n", comm2);
-				int file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+				int return_code[] = {0};
 
-				if (file < 0)
+				
+				pid_t p = fork();
+				if (p < 0)
 				{
-					return_code[0] = 550;
-					send(newsockfd, return_code, sizeof(int), 0);
+					perror("Could not fork");
+					exit(EXIT_FAILURE);
 				}
-				else
+				else if (p == 0)	// child
 				{
-					pid_t p = fork();
-					if (p < 0)
-					{
-						perror("Could not fork");
+					/* Opening a socket is exactly similar to the server process */
+					if ((sockfd_put = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+						perror("Unable to create socket\n");
+						return_code[0] = 550;
+						send(newsockfd, return_code, sizeof(int), 0);
 						exit(EXIT_FAILURE);
 					}
-					else if (p == 0)	// child
-					{
-						/* Opening a socket is exactly similar to the server process */
-						if ((sockfd_put = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-							perror("Unable to create socket\n");
+
+					serv_addr.sin_port	= htons(PORT_Y);
+
+					if ((connect(sockfd_put, (struct sockaddr *) &serv_addr,
+											sizeof(serv_addr))) < 0) {
+							perror("Unable to connect to server\n");
 							exit(0);
-						}
+					}
+					else
+						printf("Connection established\n");
 
-						serv_addr.sin_port	= htons(PORT_Y);
+					
+					int file, FILE_FLAG = 1, byte_count = 0, word_count = 0;
+					int read_word = 1;
 
-						if ((connect(sockfd_put, (struct sockaddr *) &serv_addr,
-												sizeof(serv_addr))) < 0) {
-								perror("Unable to connect to server\n");
-								exit(0);
-						}
-						else
-							printf("Connection established\n");
+					for (i = 1; ; i++)	// use i as a count variable
+					{
+						char buf_temp[BUF_SIZE+1];
+						memset(buf_temp, 0, BUF_SIZE+1);
 
-						
-						int file, FILE_FLAG = 1, byte_count = 0, word_count = 0;
-						int read_word = 1;
+						buf_temp[BUF_SIZE] = '\0';
 
-						file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
-						for (i = 1; ; i++)	// use i as a count variable
+						printf("Receiving from server\n");
+						int n = recv(sockfd_put, buf_temp, BUF_SIZE, 0);
+						if (n > 0)
+							byte_count += n;
+
+						printf("Received: %s\nbytes: %d\n", buf_temp, n);
+
+						if (n < 0)
+							perror("Some error occured");
+						// Check if socket has been closed
+						if (i == 1 && n == 0)
 						{
-							char buf_temp[BUF_SIZE+1];
-							memset(buf_temp, 0, BUF_SIZE+1);
-
-							buf_temp[BUF_SIZE] = '\0';
-
-							printf("Receiving from server\n");
-							int n = recv(sockfd_put, buf_temp, BUF_SIZE, 0);
-							if (n > 0)
-								byte_count += n;
-
-							printf("Received: %s\nbytes: %d\n", buf_temp, n);
-
-							if (n < 0)
-								perror("Some error occured");
-							// Check if socket has been closed
-							if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
+							printf("File not found.\n");
+							close(sockfd_put);
+							return_code[0] = 550;
+							send(newsockfd, return_code, sizeof(int), 0);
+							break;
+						}
+						else if (i == 1)
+						{
+							file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+							if (file < 0)
 							{
-								printf("Reading complete\n");
-								close(file);
-								close(sockfd_put);
-								FILE_FLAG = 0;
+								return_code[0] = 550;
+								send(newsockfd, return_code, sizeof(int), 0);
 								break;
 							}
-
-							// If reading is incomplete, write to file
-							if (FILE_FLAG)
-							{
-								printf("Writing to file\n");
-								printf("len is %d\n", strlen(buf_temp));
-								write(file, buf_temp, strlen(buf_temp)+1);
-							}
-
+						}
+						if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
+						{
+							printf("Reading complete\n");
+							close(file);
+							close(sockfd_put);
+							FILE_FLAG = 0;
+							break;
 						}
 
+						// If reading is incomplete, write to file
+						if (FILE_FLAG)
+						{
+							printf("Writing to file\n");
+							printf("len is %d\n", strlen(buf_temp));
+							write(file, buf_temp, strlen(buf_temp));
+						}
 
-						// close(sockfd_put);
+					}
+
+
+					// close(sockfd_put);
+					printf("Return code is: %d\n", return_code[0]);
+					if (return_code[0] != 550)
+					{
 						return_code[0] = 250;
 						send(newsockfd, return_code, sizeof(int), 0);						
 					}
 				}
+				
+			}
+
+			else if (strcmp(comm1, "cd")==0)
+			{
+				int n = chdir(comm2);
+				if (n < 0)
+				{
+					perror("Some error occured");
+					return_code[0] = 501;
+					send(newsockfd, return_code, sizeof(int), 0);						
+				}
+				else
+				{
+					return_code[0] = 200;
+					send(newsockfd, return_code, sizeof(int), 0);	
+				}
+			}
+
+			else if (strcmp(comm1, "quit")==0)
+			{
+				return_code[0] = 421;
+				send(newsockfd, return_code, sizeof(int), 0);
+				printf("Closing Connection\n");	
+				close(newsockfd);
+				break;
+			}
+
+			else
+			{
+
 			}
 		}
 	}

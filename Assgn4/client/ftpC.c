@@ -65,8 +65,15 @@ int main()
 		send(sockfd, command, strlen(command)+1, 0);
 		if (strcmp(command,"quit")==0)
 		{
-			close(sockfd);
-			break;
+			int return_code[]={0};
+			int n = recv(sockfd, return_code, sizeof(int), 0);
+			if (return_code[0] == 421)
+			{
+				close(sockfd);
+				break;
+			}
+			else
+				continue;
 		}
 
 		char comm1[100], comm2[100];
@@ -89,7 +96,7 @@ int main()
 				struct sockaddr_in	cli_addr_get, serv_addr_get;
 				if ((sockfd_get = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 					perror("Cannot create socket\n");
-					exit(0);
+					exit(EXIT_FAILURE);
 				}
 
 				serv_addr_get.sin_family		= AF_INET;
@@ -145,10 +152,10 @@ int main()
 					if (FILE_FLAG)
 					{
 						printf("Writing to file\n");
-						write(file, buf_temp, strlen(buf_temp)+1);
+						write(file, buf_temp, strlen(buf_temp));
 					}
-
 				}
+				close(sockfd_get);
 				exit(0);
 			}
 			else 		// parent
@@ -177,11 +184,7 @@ int main()
 		}
 
 
-
-
-
-
-		if (strcmp(comm1, "put")==0)
+		else if (strcmp(comm1, "put")==0)
 		{
 			printf("In put\n");
 			pid_t p = fork();
@@ -206,7 +209,7 @@ int main()
 				if (bind(sockfd_put, (struct sockaddr *) &serv_addr_get,
 								sizeof(serv_addr_get)) < 0) {
 					perror("Unable to bind local address");
-					exit(0);
+					exit(EXIT_FAILURE);
 				}
 
 				listen(sockfd_put, 5);
@@ -220,6 +223,8 @@ int main()
 				if (file < 0)
 				{
 					printf("File not found\n");
+					close(sockfd_put);
+					close(newsockfd_put);
 					exit(EXIT_FAILURE);
 				}
 
@@ -230,14 +235,14 @@ int main()
 					memset(buf_temp, 0, BUF_SIZE);
 					printf("Reading from file\n");
 					int read_bytes = read(file, buf_temp, BUF_SIZE - 1);
-					buf_temp[BUF_SIZE] = '\0';
+					// buf_temp[BUF_SIZE] = '\0';
 					printf("Read: %s\n", buf_temp);
 					// Read from file complete
 					if (read_bytes <= 0)
 					{
 						printf("Reading complete\n");
 						close(file);
-						close(sockfd_put);
+						close(newsockfd_put);
 						break;
 					}
 
@@ -271,11 +276,34 @@ int main()
 				else if (return_code[0] == 250)
 				{
 					int status;
-					printf("File transfer successfull\n");
+					printf("File transfer successful\n");
 					kill(p, SIGTERM);
 				}
 
 			}
+
+		}
+
+		else if (strcmp(comm1, "cd")==0)
+		{
+			int return_code[]={0};
+			int n = recv(sockfd, return_code, sizeof(int), 0);
+			if (n == 0)
+				printf("Connection broken\n");
+			if (return_code[0] == 200)
+			{
+				int status;
+				printf("Directory change successful\n");
+			}
+			else if (return_code[0] == 501)
+			{
+				int status;
+				printf("Some error occured\n");
+			}	
+		}
+
+		else
+		{
 
 		}
 	}
