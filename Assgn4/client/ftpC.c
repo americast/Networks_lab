@@ -114,7 +114,7 @@ int main()
 
 
 				int file, FILE_FLAG = 1, byte_count = 0, word_count = 0;
-				int read_word = 1;
+				int read_word = 1, DONE_FLAG = 0;
 
 				file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
 				for (i = 1; ; i++)	// use i as a count variable
@@ -165,7 +165,7 @@ int main()
 					}
 
 					// Check if socket has been closed
-					if (n == 0 || (n == -1 && errno == EWOULDBLOCK) || head == 'L')
+					if ((n == 0 || (n == -1 && errno == EWOULDBLOCK) ) && DONE_FLAG)
 					{
 						printf("Reading complete\n");
 						close(file);
@@ -173,6 +173,9 @@ int main()
 						FILE_FLAG = 0;
 						break;
 					}
+
+					if (head == 'L')
+						DONE_FLAG = 1;
 				}
 				close(sockfd_get);
 				exit(0);
@@ -181,6 +184,8 @@ int main()
 			{
 				int return_code[]={0};
 				int n = recv(sockfd, return_code, sizeof(int), 0);
+
+				return_code[0] = ntohl(return_code[0]);
 				if (n == 0)
 				{
 					printf("Connection broken\n");
@@ -211,6 +216,8 @@ int main()
 		{
 			int return_code[]={0};
 			int n = recv(sockfd, return_code, sizeof(int), 0);
+
+			return_code[0] = ntohl(return_code[0]);
 			if (return_code[0] == 421 || return_code[0] == 503)
 			{
 				close(sockfd);
@@ -343,6 +350,8 @@ int main()
 			{
 				int return_code[]={0};
 				int n = recv(sockfd, return_code, sizeof(int), 0);
+
+				return_code[0] = ntohl(return_code[0]);
 				if (n == 0)
 				{
 					printf("Connection broken\n");
@@ -374,6 +383,8 @@ int main()
 		{
 			int return_code[]={0};
 			int n = recv(sockfd, return_code, sizeof(int), 0);
+
+			return_code[0] = ntohl(return_code[0]);
 			if (n == 0)
 				printf("Connection broken\n");
 			if (return_code[0] == 200)
@@ -398,6 +409,8 @@ int main()
 			printf("sent port\n");
 			int return_code[]={0};
 			int n = recv(sockfd, return_code, sizeof(int), 0);
+
+			return_code[0] = ntohl(return_code[0]);
 			if (return_code[0] != 200)
 			{
 				printf("Error: closing all connections\n");
@@ -411,6 +424,8 @@ int main()
 		{
 			int return_code[]={0};
 			int n = recv(sockfd, return_code, sizeof(int), 0);
+
+			return_code[0] = ntohl(return_code[0]);
 			if (return_code[0] == 502)
 			{
 				printf("Error: command not found\n");

@@ -98,7 +98,7 @@ int main()
 					if (PORT_Y > 1024 && PORT_Y < 65535)
 					{
 						printf("Valid port\n");
-						return_code[0] = 200;
+						return_code[0] = htonl(200);
 						send(newsockfd, return_code, sizeof(int), 0);
 						FIRST_FLAG = 0;
 						continue;
@@ -106,7 +106,7 @@ int main()
 					else
 					{
 						printf("Invalid port\n");
-						return_code[0] = 550;
+						return_code[0] = htonl(550);
 						send(newsockfd, return_code, sizeof(int), 0);
 						close(newsockfd);
 						break;
@@ -115,7 +115,7 @@ int main()
 				else
 				{
 					printf("Port not set\n");
-					return_code[0] = 503;
+					return_code[0] = htonl(503);
 					send(newsockfd, return_code, sizeof(int), 0);
 					close(newsockfd);
 					break;
@@ -130,7 +130,7 @@ int main()
 
 				if (file < 0)
 				{
-					return_code[0] = 550;
+					return_code[0] = htonl(550);
 					send(newsockfd, return_code, sizeof(int), 0);
 				}
 				else
@@ -146,7 +146,7 @@ int main()
 						/* Opening a socket is exactly similar to the server process */
 						if ((sockfd_get = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 							perror("Unable to create socket");
-							// return_code[0] = 550;
+							// return_code[0] = htonl(550);
 							// send(newsockfd, return_code, sizeof(int), 0);
 							exit(EXIT_FAILURE);
 						}
@@ -225,7 +225,7 @@ int main()
 
 						close(sockfd_get);
 						exit(EXIT_SUCCESS);
-						// return_code[0] = 250;
+						// return_code[0] = htonl(250);
 						// send(newsockfd, return_code, sizeof(int), 0);
 
 					}
@@ -236,12 +236,12 @@ int main()
 						wait(&stat);
 						if (stat == EXIT_FAILURE)
 						{
-							return_code[0] = 550;
+							return_code[0] = htonl(550);
 							send(newsockfd, return_code, sizeof(int), 0);
 						}
 						else
 						{
-							return_code[0] = 250;
+							return_code[0] = htonl(250);
 							send(newsockfd, return_code, sizeof(int), 0);
 						}
 					}
@@ -271,7 +271,7 @@ int main()
 					/* Opening a socket is exactly similar to the server process */
 					if ((sockfd_put = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 						perror("Unable to create socket\n");
-						// return_code[0] = 550;
+						// return_code[0] = htonl(550);
 						// send(newsockfd, return_code, sizeof(int), 0);
 						exit(EXIT_FAILURE);
 					}
@@ -288,7 +288,7 @@ int main()
 
 					
 					int file, FILE_FLAG = 1, byte_count = 0, word_count = 0;
-					int read_word = 1;
+					int read_word = 1, DONE_FLAG = 0;
 
 					for (i = 1; ; i++)	// use i as a count variable
 					{
@@ -338,7 +338,7 @@ int main()
 						{
 							printf("File not found.\n");
 							close(sockfd_put);
-							// return_code[0] = 550;
+							// return_code[0] = htonl(550);
 							// send(newsockfd, return_code, sizeof(int), 0);
 							exit(EXIT_FAILURE);
 						}
@@ -347,13 +347,13 @@ int main()
 							file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
 							if (file < 0)
 							{
-								// return_code[0] = 550;
+								// return_code[0] = htonl(550);
 								// send(newsockfd, return_code, sizeof(int), 0);
 								// break;
 								exit(EXIT_FAILURE);
 							}
 						}
-						if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
+						if ((n == 0 || (n == -1 && errno == EWOULDBLOCK)) && DONE_FLAG)
 						{
 							printf("Reading complete\n");
 							close(file);
@@ -361,6 +361,9 @@ int main()
 							FILE_FLAG = 0;
 							exit(EXIT_SUCCESS);
 						}
+
+						if (head == 'L')
+							DONE_FLAG = 1;
 
 						// If reading is incomplete, write to file
 						if (FILE_FLAG)
@@ -375,9 +378,9 @@ int main()
 					exit(EXIT_SUCCESS);
 					// close(sockfd_put);
 					// printf("Return code is: %d\n", return_code[0]);
-					// if (return_code[0] != 550)
+					// if (return_code[0] != htonl(550))
 					// {
-					// 	return_code[0] = 250;
+					// 	return_code[0] = htonl(250);
 					// 	send(newsockfd, return_code, sizeof(int), 0);						
 					// }
 				}
@@ -387,12 +390,12 @@ int main()
 					wait(&stat);
 					if (stat == EXIT_FAILURE)
 					{
-						return_code[0] = 550;
+						return_code[0] = htonl(550);
 						send(newsockfd, return_code, sizeof(int), 0);
 					}
 					else
 					{
-						return_code[0] = 250;
+						return_code[0] = htonl(250);
 						send(newsockfd, return_code, sizeof(int), 0);
 
 					}
@@ -406,19 +409,19 @@ int main()
 				if (n < 0)
 				{
 					perror("Some error occured");
-					return_code[0] = 501;
+					return_code[0] = htonl(501);
 					send(newsockfd, return_code, sizeof(int), 0);						
 				}
 				else
 				{
-					return_code[0] = 200;
+					return_code[0] = htonl(200);
 					send(newsockfd, return_code, sizeof(int), 0);	
 				}
 			}
 
 			else if (strcmp(comm1, "quit")==0)
 			{
-				return_code[0] = 421;
+				return_code[0] = htonl(421);
 				send(newsockfd, return_code, sizeof(int), 0);
 				printf("Closing Connection\n");	
 				close(newsockfd);
@@ -428,7 +431,7 @@ int main()
 
 			else
 			{
-				return_code[0] = 502;
+				return_code[0] = htonl(502);
 				send(newsockfd, return_code, sizeof(int), 0);
 				printf("Closing Connection\n");	
 				continue;
