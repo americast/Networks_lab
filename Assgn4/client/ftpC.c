@@ -64,14 +64,17 @@ int main()
 		gets(command);
 
 		send(sockfd, command, strlen(command)+1, 0);
+		int pos = 0;
+		for(;command[pos]==' ';pos++);
 		char comm1[100], comm2[100];
-		sscanf(command, "%s", comm1);
-		int pos = strlen(comm1);
+		sscanf(command+pos, "%s", comm1);
+		pos += strlen(comm1);
 		for(;command[pos]==' ';pos++);
 		sscanf(command+pos, "%s", comm2);
 
 		if (strcmp(comm1, "get")==0)
 		{
+			printf("In get\n");
 			pid_t p = fork();
 			if (p < 0)
 			{
@@ -191,6 +194,7 @@ int main()
 					printf("Connection broken\n");
 
 				}
+				printf("Return code received: %d\n", return_code[0]);
 				if (return_code[0] == 550)
 				{
 					int status;
@@ -201,7 +205,7 @@ int main()
 				{
 					int status;
 					printf("File transfer successful\n");
-					kill(p, SIGTERM);
+					wait(NULL);
 				}
 				else
 				{
@@ -218,6 +222,7 @@ int main()
 			int n = recv(sockfd, return_code, sizeof(int), 0);
 
 			return_code[0] = ntohl(return_code[0]);
+			printf("Return code received: %d\n", return_code[0]);
 			if (return_code[0] == 421 || return_code[0] == 503)
 			{
 				close(sockfd);
@@ -352,6 +357,8 @@ int main()
 				int n = recv(sockfd, return_code, sizeof(int), 0);
 
 				return_code[0] = ntohl(return_code[0]);
+
+				printf("Return code received: %d\n", return_code[0]);
 				if (n == 0)
 				{
 					printf("Connection broken\n");
@@ -367,7 +374,7 @@ int main()
 				{
 					int status;
 					printf("File transfer successful\n");
-					kill(p, SIGTERM);
+					wait(NULL);
 				}
 				else
 				{
@@ -385,6 +392,8 @@ int main()
 			int n = recv(sockfd, return_code, sizeof(int), 0);
 
 			return_code[0] = ntohl(return_code[0]);
+
+			printf("Return code received: %d\n", return_code[0]);
 			if (n == 0)
 				printf("Connection broken\n");
 			if (return_code[0] == 200)
@@ -411,6 +420,7 @@ int main()
 			int n = recv(sockfd, return_code, sizeof(int), 0);
 
 			return_code[0] = ntohl(return_code[0]);
+			printf("Return code received: %d\n", return_code[0]);
 			if (return_code[0] != 200)
 			{
 				printf("Error: closing all connections\n");

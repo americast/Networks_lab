@@ -85,8 +85,10 @@ int main()
 				break;
 			}
 			printf("Received data from client\n");
-			sscanf(command, "%s", comm1);
-			int pos = strlen(comm1);
+			int pos = 0;
+			for(;command[pos]==' ';pos++);
+			sscanf(command+pos, "%s", comm1);
+			pos += strlen(comm1);
 			for(;command[pos]==' ';pos++);
 			sscanf(command+pos, "%s", comm2);
 
@@ -234,6 +236,8 @@ int main()
 						int return_code[] = {0};
 						int stat;
 						wait(&stat);
+						
+						stat = WEXITSTATUS(stat);
 						if (stat == EXIT_FAILURE)
 						{
 							return_code[0] = htonl(550);
@@ -388,6 +392,8 @@ int main()
 				{
 					int stat, return_code[] = {0};
 					wait(&stat);
+					stat = WEXITSTATUS(stat);
+					printf("Return status: %d\n", stat);
 					if (stat == EXIT_FAILURE)
 					{
 						return_code[0] = htonl(550);
