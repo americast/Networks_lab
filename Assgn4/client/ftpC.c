@@ -31,7 +31,7 @@ void delay(unsigned int mseconds)
 
 int main()
 {
-	int			sockfd ;
+	int			sockfd ;		// Global sockfd
 	struct sockaddr_in	serv_addr, cli_addr;
 
 	int i;
@@ -73,7 +73,7 @@ int main()
 			continue;
 		send(sockfd, command, strlen(command)+1, 0);
 
-		if (strcmp(comm1, "get")==0)
+		if (strcmp(comm1, "get")==0)	// For get command
 		{
 			// printf("In get\n");
 			pid_t p = fork();
@@ -141,29 +141,44 @@ int main()
 						exit(EXIT_FAILURE);
 					}
 
-					char buf_temp[read_bytes];
-					memset(buf_temp, 0, read_bytes);
-					n = recv(newsockfd_get, buf_temp, read_bytes, 0);
-					if (n < 0)
+					char buf_temp[BUF_SIZE];
+					memset(buf_temp, 0, BUF_SIZE);
+					int read_till_here = 0;
+
+					while(1)
 					{
-						perror("Unable to receive");
-						exit(EXIT_FAILURE);
+						if (read_bytes - read_till_here < BUF_SIZE)
+							n = recv(newsockfd_get, buf_temp, read_bytes, 0);
+						else
+							n = recv(newsockfd_get, buf_temp, BUF_SIZE, 0);
+
+
+						if (n < 0)
+						{
+							perror("Unable to receive");
+							exit(EXIT_FAILURE);
+						}
+						
+						if (n > 0)
+						{
+							read_till_here+=n;
+							byte_count += n;
+						}
+						// printf("Received: %s\nnum bytes: %d\n", buf_temp, read_bytes);
+
+						if (n < 0)
+						{
+							perror("Unable to receive");
+							exit(EXIT_FAILURE);
+						}	
+
+						// If reading is incomplete, write to file
+						if (FILE_FLAG)
+							write(file, buf_temp, n);
+
+						if (read_till_here == read_bytes)
+							break;
 					}
-					
-					if (n > 0)
-						byte_count += n;
-
-					// printf("Received: %s\nnum bytes: %d\n", buf_temp, read_bytes);
-
-					if (n < 0)
-					{
-						perror("Unable to receive");
-						exit(EXIT_FAILURE);
-					}	
-
-					// If reading is incomplete, write to file
-					if (FILE_FLAG)
-						write(file, buf_temp, read_bytes);
 
 					// Check if socket has been closed
 					if ((n == 0 || (n == -1 && errno == EWOULDBLOCK) ) && DONE_FLAG)
@@ -189,9 +204,12 @@ int main()
 				return_code[0] = ntohl(return_code[0]);
 				if (n == 0)
 				{
-					printf("Connection broken\n");
+					printf("Error: Connection broken\n");
+					close(sockfd);
+					exit(EXIT_FAILURE);
 
 				}
+				// Handling error codes
 				printf("Return code received: %d\n", return_code[0]);
 				if (return_code[0] == 550)
 				{
@@ -231,7 +249,7 @@ int main()
 
 			return_code[0] = ntohl(return_code[0]);
 			printf("Return code received: %d\n", return_code[0]);
-			if (return_code[0] == 421 || return_code[0] == 503)
+			if (return_code[0] == 421 || return_code[0] == 503 || return_code[0] == 0)
 			{
 				close(sockfd);
 				printf("Success: Server connection closed\n");
@@ -285,7 +303,7 @@ int main()
 
 				if (file < 0)
 				{
-					// printf("File not found\n");
+					// File not found or could not be opened
 					close(sockfd_put);
 					close(newsockfd_put);
 					exit(EXIT_FAILURE);
@@ -297,10 +315,7 @@ int main()
 					char buf_temp[BUF_SIZE];
 					memset(buf_temp, 0, BUF_SIZE);
 					short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
-					// buf_temp[BUF_SIZE] = '\0';
-					// printf("Read: %s\n", buf_temp);
-					// printf("Size read as read_bytes: %d\n", read_bytes);
-					// Read from file complete
+
 					if (read_bytes <= 0)
 					{
 						// printf("Reading complete\n");
@@ -310,7 +325,6 @@ int main()
 							perror("Unable to send data");
 							exit(EXIT_FAILURE);
 						}
-						printf("Sent L\n");
 
 						if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
 						{
@@ -331,21 +345,19 @@ int main()
 
 					// find length of buffer read
 					int len = strlen(buf_temp);
-					// printf("len: %d\n", read_bytes);
+
 					// send to server
 					if (send(newsockfd_put, "S", 1, 0) < 0)
 					{
 						perror("Unable to send data");
 						exit(EXIT_FAILURE);
 					}
-					// printf("Sent S\n");
 
 					if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
 					{
 						perror("Unable to send data");
 						exit(EXIT_FAILURE);
 					}
-
 
 					if (send(newsockfd_put, buf_temp, read_bytes, 0)  < 0)
 					{
@@ -368,7 +380,7 @@ int main()
 				printf("Return code received: %d\n", return_code[0]);
 				if (n == 0)
 				{
-					printf("Connection broken\n");
+					printf("Error: Connection broken\n");
 
 				}
 				if (return_code[0] == 550)
@@ -414,7 +426,7 @@ int main()
 
 			printf("Return code received: %d\n", return_code[0]);
 			if (n == 0)
-				printf("Connection broken\n");
+				printf("Error: Connection broken\n");
 			if (return_code[0] == 200)
 			{
 				int status;
@@ -439,7 +451,7 @@ int main()
 			}
 		}
 
-		else if (strcmp(comm1, "port")==0)
+		else if (strcmp(comm1, "port")==0)  // For port
 		{
 			// printf("sent port\n");
 			int return_code[]={0};
@@ -450,6 +462,12 @@ int main()
 			if (return_code[0] == 550)
 			{
 				printf("Error: Invalid port\n");
+				close(sockfd);
+				exit(EXIT_FAILURE);
+			}
+			if (return_code[0] == 0)
+			{
+				printf("Error: Connection broken\n");
 				close(sockfd);
 				exit(EXIT_FAILURE);
 			}
@@ -484,6 +502,12 @@ int main()
 			else if (return_code[0] == 503)
 			{
 				printf("Error: Port not set\n");
+				close(sockfd);
+				exit(EXIT_FAILURE);
+			}
+			else if (return_code[0] == 0)
+			{
+				printf("Error: Connection broken\n");
 				close(sockfd);
 				exit(EXIT_FAILURE);
 			}

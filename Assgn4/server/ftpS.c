@@ -15,7 +15,7 @@ Sayan Sinha
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define BUF_SIZE 10
+#define BUF_SIZE 8
 #define PORT_X 50000
 
 int PORT_Y = 55000;
@@ -82,6 +82,7 @@ int main()
 			{
 				close(newsockfd);
 				FIRST_FLAG = 1;
+				printf("Connection broken\n");
 				break;
 			}
 			printf("Received data from client\n");
@@ -101,8 +102,8 @@ int main()
 					sscanf(command+pos, "%s", comm3);
 			}
 			printf("pos: %d\n", pos);
+			printf("comm2 len: %d\n", strlen(comm2));
 			printf("comm3 len: %d\n", strlen(comm3));
-			printf("comm2len: %d\n", strlen(comm2));
 
 			if ((strlen(comm2) == 0 && (strcmp(comm1, "port") ==0 || strcmp(comm1, "get") ==0 || strcmp(comm1, "put") ==0 || strcmp(comm1, "cd") ==0 )) || strlen(comm3) !=0)
 			{
@@ -112,9 +113,9 @@ int main()
 				continue;
 			}
 
-			if (FIRST_FLAG)
+			if (FIRST_FLAG)	// Makes sure this is the first command
 			{
-				if (strcmp(comm1, "port")==0)
+				if (strcmp(comm1, "port")==0)	// For port command
 				{
 					PORT_Y = atoi(comm2);
 					if (PORT_Y > 1024 && PORT_Y < 65535)
@@ -144,7 +145,7 @@ int main()
 				}
 			}
 			
-			if (strcmp(comm1, "get")==0)
+			if (strcmp(comm1, "get")==0) // For get command
 			{
 				printf("In get\n");
 				printf("File to open %s\n", comm2);
@@ -222,13 +223,11 @@ int main()
 							// find length of buffer read
 							int len = strlen(buf_temp);
 							printf("len: %d\n", len);
-							printf("Here 1\n");
 							if (send(sockfd_get, "S", 1, 0) < 0)
 							{
 								perror("Unable to send data");
 								exit(EXIT_FAILURE);
 							}
-							printf("Here 2\n");
 							if (send(sockfd_get, &read_bytes, sizeof(read_bytes), 0) < 0)
 							{
 								perror("Unable to send data");
@@ -236,7 +235,6 @@ int main()
 							}
 							
 							// send to client
-							printf("Here 3\n");
 							if (send(sockfd_get, buf_temp, read_bytes, 0) < 0)
 							{
 								perror("Unable to send data");
@@ -277,7 +275,7 @@ int main()
 
 
 
-			else if (strcmp(comm1, "put")==0)
+			else if (strcmp(comm1, "put")==0)	// for pur command
 			{
 				printf("In put\n");
 				printf("File to open %s\n", comm2);
@@ -336,56 +334,68 @@ int main()
 
 						printf("Received read_bytes: %d\n", read_bytes);
 
-						char buf_temp[read_bytes];
-						memset(buf_temp, 0, read_bytes);
-
-						int n = recv(sockfd_put, buf_temp, read_bytes, 0);
-						
-						if (n < 0)
+						char buf_temp[BUF_SIZE];
+						memset(buf_temp, 0, BUF_SIZE);
+						int read_till_now = 0;
+						while(1)
 						{
-							perror("Could not receive");
-							exit(EXIT_FAILURE);
-						}
-						if (n > 0)
-							byte_count += n;
+							int n;
+							if (read_till_now - read_bytes < BUF_SIZE)
+								n = recv(sockfd_put, buf_temp, read_bytes, 0);
+							else
+								n = recv(sockfd_put, buf_temp, BUF_SIZE, 0);
 
-
-						printf("Received: %s\nnum bytes: %hu\n", buf_temp, read_bytes);
-
-						if (n < 0)
-						{
-							perror("Some error occured");
-							exit(EXIT_FAILURE);
-						}
-						// Check if socket has been closed
-						if (i == 1 && n == 0)
-						{
-							printf("File not found.\n");
-							close(sockfd_put);
-							// return_code[0] = htonl(550);
-							// send(newsockfd, return_code, sizeof(int), 0);
-							exit(EXIT_FAILURE);
-						}
-						else if (i == 1)
-						{
-							file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
-							if (file < 0)
+							
+							if (n < 0)
 							{
-								// return_code[0] = htonl(550);
-								// send(newsockfd, return_code, sizeof(int), 0);
-								// break;
+								perror("Could not receive");
 								exit(EXIT_FAILURE);
 							}
-						}
-						if ((n == 0 || (n == -1 && errno == EWOULDBLOCK)) && DONE_FLAG)
-						{
-							printf("Reading complete\n");
-							close(file);
-							close(sockfd_put);
-							FILE_FLAG = 0;
-							exit(EXIT_SUCCESS);
-						}
+							if (n > 0)
+							{
+								byte_count += n;
+								read_till_now += n;
+							}
 
+
+							printf("Received: %s\nnum bytes: %hu\n", buf_temp, read_bytes);
+
+							if (n < 0)
+							{
+								perror("Some error occured");
+								exit(EXIT_FAILURE);
+							}
+							// Check if socket has been closed
+							if (i == 1 && n == 0)
+							{
+								printf("File not found.\n");
+								close(sockfd_put);
+								// return_code[0] = htonl(550);
+								// send(newsockfd, return_code, sizeof(int), 0);
+								exit(EXIT_FAILURE);
+							}
+							else if (i == 1)
+							{
+								file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
+								if (file < 0)
+								{
+									// return_code[0] = htonl(550);
+									// send(newsockfd, return_code, sizeof(int), 0);
+									// break;
+									exit(EXIT_FAILURE);
+								}
+							}
+							if ((n == 0 || (n == -1 && errno == EWOULDBLOCK)) && DONE_FLAG)
+							{
+								printf("Reading complete\n");
+								close(file);
+								close(sockfd_put);
+								FILE_FLAG = 0;
+								exit(EXIT_SUCCESS);
+							}
+							if (read_till_now == read_bytes)
+								break;
+						}
 						if (head == 'L')
 							DONE_FLAG = 1;
 
@@ -400,13 +410,6 @@ int main()
 					}
 
 					exit(EXIT_SUCCESS);
-					// close(sockfd_put);
-					// printf("Return code is: %d\n", return_code[0]);
-					// if (return_code[0] != htonl(550))
-					// {
-					// 	return_code[0] = htonl(250);
-					// 	send(newsockfd, return_code, sizeof(int), 0);						
-					// }
 				}
 				else // parent
 				{
@@ -429,7 +432,7 @@ int main()
 				
 			}
 
-			else if (strcmp(comm1, "cd")==0)
+			else if (strcmp(comm1, "cd")==0)	// For cd
 			{
 				int n = chdir(comm2);
 				if (n < 0)
@@ -445,7 +448,7 @@ int main()
 				}
 			}
 
-			else if (strcmp(comm1, "quit")==0)
+			else if (strcmp(comm1, "quit")==0)	// For quit
 			{
 				return_code[0] = htonl(421);
 				send(newsockfd, return_code, sizeof(int), 0);
