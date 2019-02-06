@@ -140,8 +140,8 @@ int main()
 						/* Opening a socket is exactly similar to the server process */
 						if ((sockfd_get = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 							perror("Unable to create socket");
-							return_code[0] = 550;
-							send(newsockfd, return_code, sizeof(int), 0);
+							// return_code[0] = 550;
+							// send(newsockfd, return_code, sizeof(int), 0);
 							exit(EXIT_FAILURE);
 						}
 
@@ -150,7 +150,7 @@ int main()
 						if ((connect(sockfd_get, (struct sockaddr *) &serv_addr,
 												sizeof(serv_addr))) < 0) {
 								perror("Unable to connect to server\n");
-								exit(0);
+								exit(EXIT_FAILURE);
 						}
 						else
 							printf("Connection established\n");
@@ -175,14 +175,35 @@ int main()
 							int len = strlen(buf_temp);
 							printf("len: %d\n", len);
 							// send to client
-							send(sockfd_get, buf_temp, strlen(buf_temp), 0);
+							if (send(sockfd_get, buf_temp, strlen(buf_temp), 0) < 0)
+							{
+								perror("Unable to send data");
+								exit(EXIT_FAILURE);
+							}
 							printf("Data sent from server\n");
 						}
 
 						close(sockfd_get);
-						return_code[0] = 250;
-						send(newsockfd, return_code, sizeof(int), 0);
+						exit(EXIT_SUCCESS);
+						// return_code[0] = 250;
+						// send(newsockfd, return_code, sizeof(int), 0);
 
+					}
+					else // parent
+					{
+						int return_code[] = {0};
+						int stat;
+						wait(&stat);
+						if (stat == EXIT_FAILURE)
+						{
+							return_code[0] = 550;
+							send(newsockfd, return_code, sizeof(int), 0);
+						}
+						else
+						{
+							return_code[0] = 250;
+							send(newsockfd, return_code, sizeof(int), 0);
+						}
 					}
 				}
 			}
@@ -210,8 +231,8 @@ int main()
 					/* Opening a socket is exactly similar to the server process */
 					if ((sockfd_put = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 						perror("Unable to create socket\n");
-						return_code[0] = 550;
-						send(newsockfd, return_code, sizeof(int), 0);
+						// return_code[0] = 550;
+						// send(newsockfd, return_code, sizeof(int), 0);
 						exit(EXIT_FAILURE);
 					}
 
@@ -220,7 +241,7 @@ int main()
 					if ((connect(sockfd_put, (struct sockaddr *) &serv_addr,
 											sizeof(serv_addr))) < 0) {
 							perror("Unable to connect to server\n");
-							exit(0);
+							exit(EXIT_FAILURE);
 					}
 					else
 						printf("Connection established\n");
@@ -244,24 +265,28 @@ int main()
 						printf("Received: %s\nbytes: %d\n", buf_temp, n);
 
 						if (n < 0)
+						{
 							perror("Some error occured");
+							exit(EXIT_FAILURE);
+						}
 						// Check if socket has been closed
 						if (i == 1 && n == 0)
 						{
 							printf("File not found.\n");
 							close(sockfd_put);
-							return_code[0] = 550;
-							send(newsockfd, return_code, sizeof(int), 0);
-							break;
+							// return_code[0] = 550;
+							// send(newsockfd, return_code, sizeof(int), 0);
+							exit(EXIT_FAILURE);
 						}
 						else if (i == 1)
 						{
 							file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
 							if (file < 0)
 							{
-								return_code[0] = 550;
-								send(newsockfd, return_code, sizeof(int), 0);
-								break;
+								// return_code[0] = 550;
+								// send(newsockfd, return_code, sizeof(int), 0);
+								// break;
+								exit(EXIT_FAILURE);
 							}
 						}
 						if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
@@ -270,7 +295,7 @@ int main()
 							close(file);
 							close(sockfd_put);
 							FILE_FLAG = 0;
-							break;
+							exit(EXIT_SUCCESS);
 						}
 
 						// If reading is incomplete, write to file
@@ -283,13 +308,29 @@ int main()
 
 					}
 
-
+					exit(EXIT_SUCCESS);
 					// close(sockfd_put);
-					printf("Return code is: %d\n", return_code[0]);
-					if (return_code[0] != 550)
+					// printf("Return code is: %d\n", return_code[0]);
+					// if (return_code[0] != 550)
+					// {
+					// 	return_code[0] = 250;
+					// 	send(newsockfd, return_code, sizeof(int), 0);						
+					// }
+				}
+				else // parent
+				{
+					int stat, return_code[] = {0};
+					wait(&stat);
+					if (stat == EXIT_FAILURE)
+					{
+						return_code[0] = 550;
+						send(newsockfd, return_code, sizeof(int), 0);
+					}
+					else
 					{
 						return_code[0] = 250;
-						send(newsockfd, return_code, sizeof(int), 0);						
+						send(newsockfd, return_code, sizeof(int), 0);
+						
 					}
 				}
 				

@@ -20,7 +20,7 @@ Sayan Sinha
 
 #define BUF_SIZE 6
 #define PORT_X 50000
-#define PORT_Y 55000
+int PORT_Y = 55000;
 
 void delay(unsigned int mseconds)
 {
@@ -325,7 +325,9 @@ int main()
 				printf("Error: closing all connections\n");
 				close(sockfd);
 				exit(EXIT_FAILURE);
-			}	
+			}
+			else
+				PORT_Y = atoi(comm2);
 		}
 		else
 		{
