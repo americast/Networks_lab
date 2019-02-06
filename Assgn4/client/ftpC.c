@@ -93,7 +93,7 @@ int main()
 
 				if (setsockopt(sockfd_get, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
 				{
-    				perror("setsockopt(SO_REUSEADDR) failed");
+    				perror("Unable to reuse socket");
     				exit(EXIT_FAILURE);
 				}
 
@@ -136,7 +136,7 @@ int main()
 						perror("Unable to receive");
 						exit(EXIT_FAILURE);
 					}
-					
+
 					char buf_temp[read_bytes];
 					memset(buf_temp, 0, read_bytes);
 					n = recv(newsockfd_get, buf_temp, read_bytes, 0);
@@ -236,7 +236,7 @@ int main()
 				struct sockaddr_in	cli_addr_get, serv_addr_get;
 				if ((sockfd_put = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 					perror("Cannot create socket\n");
-					exit(0);
+					exit(EXIT_FAILURE);
 				}
 
 				serv_addr_get.sin_family		= AF_INET;
@@ -245,7 +245,7 @@ int main()
 
 				if (setsockopt(sockfd_put, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
 				{
-    				perror("setsockopt(SO_REUSEADDR) failed");
+    				perror("Unable to reuse socket");
     				exit(EXIT_FAILURE);
 				}
 
@@ -277,13 +277,34 @@ int main()
 					char buf_temp[BUF_SIZE];
 					memset(buf_temp, 0, BUF_SIZE);
 					printf("Reading from file\n");
-					int read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+					short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
 					// buf_temp[BUF_SIZE] = '\0';
 					printf("Read: %s\n", buf_temp);
+					printf("Size read as read_bytes: %d\n", read_bytes);
 					// Read from file complete
 					if (read_bytes <= 0)
 					{
 						printf("Reading complete\n");
+
+						if (send(newsockfd_put, "L", 1, 0) < 0)
+						{
+							perror("Unable to send data");
+							exit(EXIT_FAILURE);
+						}
+						printf("Sent L\n");
+
+						if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
+						{
+							perror("Unable to send data");
+							exit(EXIT_FAILURE);
+						}
+
+						if (send(newsockfd_put, "", 0, 0)  < 0)
+						{
+							perror("Unable to send data");
+							exit(EXIT_FAILURE);
+						}
+
 						close(file);
 						close(newsockfd_put);
 						break;
@@ -291,10 +312,27 @@ int main()
 
 					// find length of buffer read
 					int len = strlen(buf_temp);
-					printf("len: %d\n", len);
+					printf("len: %d\n", read_bytes);
 					// send to server
+					if (send(newsockfd_put, "S", 1, 0) < 0)
+					{
+						perror("Unable to send data");
+						exit(EXIT_FAILURE);
+					}
+					printf("Sent S\n");
 
-					send(newsockfd_put, buf_temp, strlen(buf_temp), 0);
+					if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
+					{
+						perror("Unable to send data");
+						exit(EXIT_FAILURE);
+					}
+
+
+					if (send(newsockfd_put, buf_temp, read_bytes, 0)  < 0)
+					{
+						perror("Unable to send data");
+						exit(EXIT_FAILURE);
+					}
 					printf("Data sent from client\n");
 				}
 

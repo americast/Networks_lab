@@ -39,6 +39,12 @@ int main()
 	serv_addr.sin_addr.s_addr	= INADDR_ANY;
 	serv_addr.sin_port			= htons(PORT_X);  // Assign port 20000
 
+	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+	{
+		perror("Could not reuse port");
+		exit(EXIT_FAILURE);
+	}
+
 	if (bind(sockfd, (struct sockaddr *) &serv_addr,
 					sizeof(serv_addr)) < 0) {
 		perror("Unable to bind local address");
@@ -179,7 +185,7 @@ int main()
 								}
 								
 								// send to client
-								if (send(sockfd_get, "", BUF_SIZE, 0) < 0)
+								if (send(sockfd_get, "", 0, 0) < 0)
 								{
 									perror("Unable to send data");
 									exit(EXIT_FAILURE);
@@ -286,17 +292,41 @@ int main()
 
 					for (i = 1; ; i++)	// use i as a count variable
 					{
-						char buf_temp[BUF_SIZE+1];
-						memset(buf_temp, 0, BUF_SIZE+1);
+						char head;
+						short read_bytes;
 
-						buf_temp[BUF_SIZE] = '\0';
 
-						printf("Receiving from server\n");
-						int n = recv(sockfd_put, buf_temp, BUF_SIZE, 0);
+						printf("Receiving from client\n");
+						if (recv(sockfd_put, &head, 1, 0) < 0)
+						{
+							perror("Could not receive");
+							exit(EXIT_FAILURE);
+						}
+						printf("Head received %c\n", head);
+
+						if (recv(sockfd_put, &read_bytes, sizeof(read_bytes), 0) < 0)
+						{
+							perror("Could not receive");
+							exit(EXIT_FAILURE);
+						}
+
+						printf("Received read_bytes: %d\n", read_bytes);
+
+						char buf_temp[read_bytes];
+						memset(buf_temp, 0, read_bytes);
+
+						int n = recv(sockfd_put, buf_temp, read_bytes, 0);
+						
+						if (n < 0)
+						{
+							perror("Could not receive");
+							exit(EXIT_FAILURE);
+						}
 						if (n > 0)
 							byte_count += n;
 
-						printf("Received: %s\nbytes: %d\n", buf_temp, n);
+
+						printf("Received: %s\nnum bytes: %hu\n", buf_temp, read_bytes);
 
 						if (n < 0)
 						{
@@ -337,7 +367,7 @@ int main()
 						{
 							printf("Writing to file\n");
 							printf("len is %d\n", strlen(buf_temp));
-							write(file, buf_temp, strlen(buf_temp));
+							write(file, buf_temp, read_bytes);
 						}
 
 					}
