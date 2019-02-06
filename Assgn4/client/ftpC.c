@@ -123,8 +123,8 @@ int main()
 				file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
 				for (i = 1; ; i++)	// use i as a count variable
 				{
-					short read_bytes;
-					char head;
+					unsigned short read_bytes;
+					char head, read_bytes_char[2];
 
 
 					// printf("Receiving from server\n");
@@ -134,16 +134,18 @@ int main()
 						perror("Unable to receive");
 						exit(EXIT_FAILURE);
 					}
-					n = recv(newsockfd_get, &read_bytes, sizeof(read_bytes), 0);
+					n = recv(newsockfd_get, read_bytes_char, 2, 0);
 					if (n < 0)
 					{
 						perror("Unable to receive");
 						exit(EXIT_FAILURE);
 					}
 
+					read_bytes = read_bytes_char[0] * 256 + read_bytes_char[1];
 					char buf_temp[BUF_SIZE];
 					memset(buf_temp, 0, BUF_SIZE);
 					int read_till_here = 0;
+
 
 					while(1)
 					{
@@ -314,25 +316,17 @@ int main()
 				{
 					char buf_temp[BUF_SIZE];
 					memset(buf_temp, 0, BUF_SIZE);
-					short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+					unsigned short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
 
 					if (read_bytes <= 0)
 					{
 						// printf("Reading complete\n");
 
-						if (send(newsockfd_put, "L", 1, 0) < 0)
-						{
-							perror("Unable to send data");
-							exit(EXIT_FAILURE);
-						}
+						char all[4];
+						memset(all, 0, 4);
+						all[0] = 'L';
 
-						if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
-						{
-							perror("Unable to send data");
-							exit(EXIT_FAILURE);
-						}
-
-						if (send(newsockfd_put, "", 0, 0)  < 0)
+						if (send(newsockfd_put, all, 3, 0)  < 0)
 						{
 							perror("Unable to send data");
 							exit(EXIT_FAILURE);
@@ -344,22 +338,37 @@ int main()
 					}
 
 					// find length of buffer read
+					// printf("read_bytes: %d\n", read_bytes);
 					int len = strlen(buf_temp);
 
-					// send to server
-					if (send(newsockfd_put, "S", 1, 0) < 0)
-					{
-						perror("Unable to send data");
-						exit(EXIT_FAILURE);
-					}
+					char all[4+read_bytes];
 
-					if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
-					{
-						perror("Unable to send data");
-						exit(EXIT_FAILURE);
-					}
+					all[0] = 'S';
+					all[1] = 'T';
+					all[2] = 'U';
+					all[3] = '\0';
+					// strcat(all,"STU");
+					strcat(all, buf_temp);
+					all[2] = (read_bytes % 256);
+					all[1] = (read_bytes / 256);
+					// all[3] = '\0';
+					// printf("Len till here: %d\n", strlen(all));
+					// printf("To send %d, all[1]: %d, all[2]: %d, rest: %s, buf_temp: %s\n", read_bytes, all[1], all[2], all+3, buf_temp);
 
-					if (send(newsockfd_put, buf_temp, read_bytes, 0)  < 0)
+					// // send to server
+					// if (send(newsockfd_put, "S", 1, 0) < 0)
+					// {
+					// 	perror("Unable to send data");
+					// 	exit(EXIT_FAILURE);
+					// }
+
+					// if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
+					// {
+					// 	perror("Unable to send data");
+					// 	exit(EXIT_FAILURE);
+					// }
+
+					if (send(newsockfd_put, all, 3+read_bytes, 0)  < 0)
 					{
 						perror("Unable to send data");
 						exit(EXIT_FAILURE);

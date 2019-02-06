@@ -189,26 +189,20 @@ int main()
 							char buf_temp[BUF_SIZE];
 							memset(buf_temp, 0, BUF_SIZE);
 							printf("Reading from file\n");
-							short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+							unsigned short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
 							printf("Read: %s\n", buf_temp);
 							// Read from file complete
 							if (read_bytes <= 0)
 							{
 								printf("Reading complete\n");
 
-								if (send(sockfd_get, "L", 1, 0) < 0)
-								{
-									perror("Unable to send data");
-									exit(EXIT_FAILURE);
-								}
-								if (send(sockfd_get, &read_bytes, sizeof(read_bytes), 0) < 0)
-								{
-									perror("Unable to send data");
-									exit(EXIT_FAILURE);
-								}
+								char all[4];
+								memset(all, 0, 4);
+								all[0] = 'L';
+
 								
 								// send to client
-								if (send(sockfd_get, "", 0, 0) < 0)
+								if (send(sockfd_get, all, 3, 0) < 0)
 								{
 									perror("Unable to send data");
 									exit(EXIT_FAILURE);
@@ -223,19 +217,20 @@ int main()
 							// find length of buffer read
 							int len = strlen(buf_temp);
 							printf("len: %d\n", len);
-							if (send(sockfd_get, "S", 1, 0) < 0)
-							{
-								perror("Unable to send data");
-								exit(EXIT_FAILURE);
-							}
-							if (send(sockfd_get, &read_bytes, sizeof(read_bytes), 0) < 0)
-							{
-								perror("Unable to send data");
-								exit(EXIT_FAILURE);
-							}
+
+							char all[4+read_bytes];
+							all[0] = 'S';
+							all[1] = 'T';
+							all[2] = 'U';
+							all[3] = '\0';
+
+							strcat(all, buf_temp);
+
+							all[2] = (read_bytes % 256);
+							all[1] = (read_bytes / 256);
 							
 							// send to client
-							if (send(sockfd_get, buf_temp, read_bytes, 0) < 0)
+							if (send(sockfd_get, all, 3+read_bytes, 0) < 0)
 							{
 								perror("Unable to send data");
 								exit(EXIT_FAILURE);
@@ -314,8 +309,8 @@ int main()
 
 					for (i = 1; ; i++)	// use i as a count variable
 					{
-						char head;
-						short read_bytes;
+						char head, read_bytes_char[2];
+						unsigned short read_bytes;
 
 
 						printf("Receiving from client\n");
@@ -326,13 +321,15 @@ int main()
 						}
 						printf("Head received %c\n", head);
 
-						if (recv(sockfd_put, &read_bytes, sizeof(read_bytes), 0) < 0)
+						if (recv(sockfd_put, read_bytes_char, 2, 0) < 0)
 						{
 							perror("Could not receive");
 							exit(EXIT_FAILURE);
 						}
 
-						printf("Received read_bytes: %d\n", read_bytes);
+						read_bytes = read_bytes_char[0] * 256 + read_bytes_char[1];
+
+						printf("Received read_bytes: %dSize of unsigned short: %d\n", read_bytes, sizeof(unsigned short));
 
 						char buf_temp[BUF_SIZE];
 						memset(buf_temp, 0, BUF_SIZE);
