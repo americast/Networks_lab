@@ -15,7 +15,7 @@ Sayan Sinha
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define BUF_SIZE 3
+#define BUF_SIZE 10
 #define PORT_X 50000
 
 int PORT_Y = 55000;
@@ -160,12 +160,32 @@ int main()
 							char buf_temp[BUF_SIZE];
 							memset(buf_temp, 0, BUF_SIZE);
 							printf("Reading from file\n");
-							int read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+							short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
 							printf("Read: %s\n", buf_temp);
 							// Read from file complete
 							if (read_bytes <= 0)
 							{
 								printf("Reading complete\n");
+
+								if (send(sockfd_get, "L", 1, 0) < 0)
+								{
+									perror("Unable to send data");
+									exit(EXIT_FAILURE);
+								}
+								if (send(sockfd_get, &read_bytes, sizeof(read_bytes), 0) < 0)
+								{
+									perror("Unable to send data");
+									exit(EXIT_FAILURE);
+								}
+								
+								// send to client
+								if (send(sockfd_get, "", BUF_SIZE, 0) < 0)
+								{
+									perror("Unable to send data");
+									exit(EXIT_FAILURE);
+								}
+
+
 								close(file);
 								close(sockfd_get);
 								break;
@@ -174,8 +194,22 @@ int main()
 							// find length of buffer read
 							int len = strlen(buf_temp);
 							printf("len: %d\n", len);
+							printf("Here 1\n");
+							if (send(sockfd_get, "S", 1, 0) < 0)
+							{
+								perror("Unable to send data");
+								exit(EXIT_FAILURE);
+							}
+							printf("Here 2\n");
+							if (send(sockfd_get, &read_bytes, sizeof(read_bytes), 0) < 0)
+							{
+								perror("Unable to send data");
+								exit(EXIT_FAILURE);
+							}
+							
 							// send to client
-							if (send(sockfd_get, buf_temp, strlen(buf_temp), 0) < 0)
+							printf("Here 3\n");
+							if (send(sockfd_get, buf_temp, read_bytes, 0) < 0)
 							{
 								perror("Unable to send data");
 								exit(EXIT_FAILURE);
@@ -330,7 +364,7 @@ int main()
 					{
 						return_code[0] = 250;
 						send(newsockfd, return_code, sizeof(int), 0);
-						
+
 					}
 				}
 				

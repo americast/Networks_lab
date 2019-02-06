@@ -18,8 +18,9 @@ Sayan Sinha
 #include <time.h>
 #include <signal.h>
 
-#define BUF_SIZE 6
+#define BUF_SIZE 10
 #define PORT_X 50000
+
 int PORT_Y = 55000;
 
 void delay(unsigned int mseconds)
@@ -118,35 +119,59 @@ int main()
 				file = open(comm2, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
 				for (i = 1; ; i++)	// use i as a count variable
 				{
-					char buf_temp[BUF_SIZE+1];
-					memset(buf_temp, 0, BUF_SIZE+1);
+					short read_bytes;
+					char head;
 
-					buf_temp[BUF_SIZE] = '\0';
 
 					printf("Receiving from server\n");
-					int n = recv(newsockfd_get, buf_temp, BUF_SIZE, 0);
+					int n = recv(newsockfd_get, &head, 1, 0);
+					if (n < 0)
+					{
+						perror("Unable to receive");
+						exit(EXIT_FAILURE);
+					}
+					n = recv(newsockfd_get, &read_bytes, sizeof(read_bytes), 0);
+					if (n < 0)
+					{
+						perror("Unable to receive");
+						exit(EXIT_FAILURE);
+					}
+					
+					char buf_temp[read_bytes];
+					memset(buf_temp, 0, read_bytes);
+					n = recv(newsockfd_get, buf_temp, read_bytes, 0);
+					if (n < 0)
+					{
+						perror("Unable to receive");
+						exit(EXIT_FAILURE);
+					}
+					
 					if (n > 0)
 						byte_count += n;
 
-					printf("Received: %s\nbytes: %d\n", buf_temp, n);
+					printf("Received: %s\nnum bytes: %d\n", buf_temp, read_bytes);
 
 					if (n < 0)
-						perror("Some error occured");
+					{
+						perror("Unable to receive");
+						exit(EXIT_FAILURE);
+					}	
+
+					// If reading is incomplete, write to file
+					if (FILE_FLAG)
+					{
+						printf("Writing to file\n");
+						write(file, buf_temp, read_bytes);
+					}
+
 					// Check if socket has been closed
-					if (n == 0 || (n == -1 && errno == EWOULDBLOCK))
+					if (n == 0 || (n == -1 && errno == EWOULDBLOCK) || head == 'L')
 					{
 						printf("Reading complete\n");
 						close(file);
 						close(newsockfd_get);
 						FILE_FLAG = 0;
 						break;
-					}
-
-					// If reading is incomplete, write to file
-					if (FILE_FLAG)
-					{
-						printf("Writing to file\n");
-						write(file, buf_temp, strlen(buf_temp));
 					}
 				}
 				close(sockfd_get);
@@ -173,6 +198,11 @@ int main()
 					printf("File transfer successful\n");
 					kill(p, SIGTERM);
 				}
+				else
+				{
+					close(sockfd);
+					exit(EXIT_FAILURE);
+				}
 
 			}
 		}
@@ -184,7 +214,7 @@ int main()
 			if (return_code[0] == 421 || return_code[0] == 503)
 			{
 				close(sockfd);
-				exit(0);
+				exit(EXIT_SUCCESS);
 			}
 			else
 				continue;
@@ -292,6 +322,11 @@ int main()
 					printf("File transfer successful\n");
 					kill(p, SIGTERM);
 				}
+				else
+				{
+					close(sockfd);
+					exit(EXIT_FAILURE);
+				}
 
 			}
 
@@ -312,7 +347,12 @@ int main()
 			{
 				int status;
 				printf("Some error occured\n");
-			}	
+			}
+			else
+			{
+				close(sockfd);
+				exit(EXIT_FAILURE);
+			}
 		}
 
 		else if (strcmp(comm1, "port")==0)
