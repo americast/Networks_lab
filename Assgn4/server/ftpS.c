@@ -73,7 +73,7 @@ int main()
 
 		while(1)
 		{
-			char command[100], comm1[100], comm2[100];
+			char command[100], comm1[100], comm2[100]="", comm3[100]="";
 			printf("\nWaiting for command from client\n"); 
 		
 			// Receive filename from client
@@ -90,7 +90,27 @@ int main()
 			sscanf(command+pos, "%s", comm1);
 			pos += strlen(comm1);
 			for(;command[pos]==' ';pos++);
-			sscanf(command+pos, "%s", comm2);
+
+			if (pos < strlen(command)-1)
+			{
+				sscanf(command+pos, "%s", comm2);
+				pos += strlen(comm2);
+				for(;command[pos]==' ';pos++);
+
+				if (pos < strlen(command)-1)
+					sscanf(command+pos, "%s", comm3);
+			}
+			printf("pos: %d\n", pos);
+			printf("comm3 len: %d\n", strlen(comm3));
+			printf("comm2len: %d\n", strlen(comm2));
+
+			if ((strlen(comm2) == 0 && (strcmp(comm1, "port") ==0 || strcmp(comm1, "get") ==0 || strcmp(comm1, "put") ==0 || strcmp(comm1, "cd") ==0 )) || strlen(comm3) !=0)
+			{
+				printf("Invalid argument\n");
+				return_code[0] = htonl(501);
+				send(newsockfd, return_code, sizeof(int), 0);
+				continue;
+			}
 
 			if (FIRST_FLAG)
 			{
@@ -236,7 +256,7 @@ int main()
 						int return_code[] = {0};
 						int stat;
 						wait(&stat);
-						
+
 						stat = WEXITSTATUS(stat);
 						if (stat == EXIT_FAILURE)
 						{

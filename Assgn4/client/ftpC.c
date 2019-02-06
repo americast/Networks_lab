@@ -62,8 +62,6 @@ int main()
 		printf("\n> ");
 		char command[100];
 		gets(command);
-
-		send(sockfd, command, strlen(command)+1, 0);
 		int pos = 0;
 		for(;command[pos]==' ';pos++);
 		char comm1[100], comm2[100];
@@ -71,10 +69,13 @@ int main()
 		pos += strlen(comm1);
 		for(;command[pos]==' ';pos++);
 		sscanf(command+pos, "%s", comm2);
+		if (!strlen(command) || !strlen(comm1))
+			continue;
+		send(sockfd, command, strlen(command)+1, 0);
 
 		if (strcmp(comm1, "get")==0)
 		{
-			printf("In get\n");
+			// printf("In get\n");
 			pid_t p = fork();
 			if (p < 0)
 			{
@@ -126,7 +127,7 @@ int main()
 					char head;
 
 
-					printf("Receiving from server\n");
+					// printf("Receiving from server\n");
 					int n = recv(newsockfd_get, &head, 1, 0);
 					if (n < 0)
 					{
@@ -152,7 +153,7 @@ int main()
 					if (n > 0)
 						byte_count += n;
 
-					printf("Received: %s\nnum bytes: %d\n", buf_temp, read_bytes);
+					// printf("Received: %s\nnum bytes: %d\n", buf_temp, read_bytes);
 
 					if (n < 0)
 					{
@@ -162,15 +163,12 @@ int main()
 
 					// If reading is incomplete, write to file
 					if (FILE_FLAG)
-					{
-						printf("Writing to file\n");
 						write(file, buf_temp, read_bytes);
-					}
 
 					// Check if socket has been closed
 					if ((n == 0 || (n == -1 && errno == EWOULDBLOCK) ) && DONE_FLAG)
 					{
-						printf("Reading complete\n");
+						// printf("Reading complete\n");
 						close(file);
 						close(newsockfd_get);
 						FILE_FLAG = 0;
@@ -197,15 +195,25 @@ int main()
 				printf("Return code received: %d\n", return_code[0]);
 				if (return_code[0] == 550)
 				{
-					int status;
-					printf("File not found\n");
+					printf("Error: Connection error or file could not be read\n");
 					kill(p, SIGKILL);
+				}
+				else if (return_code[0] == 501)
+				{
+					kill(p, SIGKILL);
+					printf("Error: Invalid argument\n");
 				}
 				else if (return_code[0] == 250)
 				{
 					int status;
-					printf("File transfer successful\n");
 					wait(NULL);
+					printf("Success: File transferred\n");
+				}
+				else if (return_code[0] == 503)
+				{
+					printf("Error: Port not set\n");
+					close(sockfd);
+					exit(EXIT_FAILURE);
 				}
 				else
 				{
@@ -226,6 +234,7 @@ int main()
 			if (return_code[0] == 421 || return_code[0] == 503)
 			{
 				close(sockfd);
+				printf("Success: Server connection closed\n");
 				exit(EXIT_SUCCESS);
 			}
 			else
@@ -235,7 +244,6 @@ int main()
 
 		else if (strcmp(comm1, "put")==0)
 		{
-			printf("In put\n");
 			pid_t p = fork();
 			if (p < 0)
 			{
@@ -277,7 +285,7 @@ int main()
 
 				if (file < 0)
 				{
-					printf("File not found\n");
+					// printf("File not found\n");
 					close(sockfd_put);
 					close(newsockfd_put);
 					exit(EXIT_FAILURE);
@@ -288,15 +296,14 @@ int main()
 				{
 					char buf_temp[BUF_SIZE];
 					memset(buf_temp, 0, BUF_SIZE);
-					printf("Reading from file\n");
 					short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
 					// buf_temp[BUF_SIZE] = '\0';
-					printf("Read: %s\n", buf_temp);
-					printf("Size read as read_bytes: %d\n", read_bytes);
+					// printf("Read: %s\n", buf_temp);
+					// printf("Size read as read_bytes: %d\n", read_bytes);
 					// Read from file complete
 					if (read_bytes <= 0)
 					{
-						printf("Reading complete\n");
+						// printf("Reading complete\n");
 
 						if (send(newsockfd_put, "L", 1, 0) < 0)
 						{
@@ -324,14 +331,14 @@ int main()
 
 					// find length of buffer read
 					int len = strlen(buf_temp);
-					printf("len: %d\n", read_bytes);
+					// printf("len: %d\n", read_bytes);
 					// send to server
 					if (send(newsockfd_put, "S", 1, 0) < 0)
 					{
 						perror("Unable to send data");
 						exit(EXIT_FAILURE);
 					}
-					printf("Sent S\n");
+					// printf("Sent S\n");
 
 					if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
 					{
@@ -345,7 +352,7 @@ int main()
 						perror("Unable to send data");
 						exit(EXIT_FAILURE);
 					}
-					printf("Data sent from client\n");
+					// printf("Data sent from client\n");
 				}
 
 				close(sockfd_put);
@@ -367,14 +374,26 @@ int main()
 				if (return_code[0] == 550)
 				{
 					int status;
-					printf("Some error occured\n");
+					printf("Error: File could not be transferred\n");
 					kill(p, SIGKILL);
 				}
+				else if (return_code[0] == 501)
+				{
+					kill(p, SIGKILL);
+					printf("Error: Invalid argument\n");
+				}
+
 				else if (return_code[0] == 250)
 				{
 					int status;
-					printf("File transfer successful\n");
+					printf("Success: File transferred\n");
 					wait(NULL);
+				}
+				else if (return_code[0] == 503)
+				{
+					printf("Error: Port not set\n");
+					close(sockfd);
+					exit(EXIT_FAILURE);
 				}
 				else
 				{
@@ -399,12 +418,19 @@ int main()
 			if (return_code[0] == 200)
 			{
 				int status;
-				printf("Directory change successful\n");
+				printf("Success: Directory changed\n");
 			}
 			else if (return_code[0] == 501)
 			{
 				int status;
-				printf("Some error occured\n");
+				printf("Error: Invalid argument or directory change unsuccessful\n");
+			}
+
+			else if (return_code[0] == 503)
+			{
+				printf("Error: Port not set\n");
+				close(sockfd);
+				exit(EXIT_FAILURE);
 			}
 			else
 			{
@@ -415,20 +441,31 @@ int main()
 
 		else if (strcmp(comm1, "port")==0)
 		{
-			printf("sent port\n");
+			// printf("sent port\n");
 			int return_code[]={0};
 			int n = recv(sockfd, return_code, sizeof(int), 0);
 
 			return_code[0] = ntohl(return_code[0]);
 			printf("Return code received: %d\n", return_code[0]);
-			if (return_code[0] != 200)
+			if (return_code[0] == 550)
+			{
+				printf("Error: Invalid port\n");
+				close(sockfd);
+				exit(EXIT_FAILURE);
+			}
+			if (return_code[0] == 501)
+				printf("Error: Invalid argument\n");
+			else if (return_code[0] != 200)
 			{
 				printf("Error: closing all connections\n");
 				close(sockfd);
 				exit(EXIT_FAILURE);
 			}
 			else
+			{
+				printf("Success: Port accepted by server\n");
 				PORT_Y = atoi(comm2);
+			}
 		}
 		else
 		{
@@ -436,13 +473,17 @@ int main()
 			int n = recv(sockfd, return_code, sizeof(int), 0);
 
 			return_code[0] = ntohl(return_code[0]);
+
+			printf("Return code received: %d\n", return_code[0]);
 			if (return_code[0] == 502)
 			{
 				printf("Error: command not found\n");
 			}
+			else if (return_code[0] == 501)
+				printf("Error: Invalid argument\n");
 			else if (return_code[0] == 503)
 			{
-				printf("Port not set\n");
+				printf("Error: Port not set\n");
 				close(sockfd);
 				exit(EXIT_FAILURE);
 			}
