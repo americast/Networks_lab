@@ -16,6 +16,7 @@ Sayan Sinha
 #include <arpa/inet.h>
 
 #define B 20
+#define PORT 20000
 
 
 
@@ -35,7 +36,7 @@ int main()
 
 	serv_addr.sin_family		= AF_INET;
 	serv_addr.sin_addr.s_addr	= INADDR_ANY;
-	serv_addr.sin_port			= htons(20000);  // Assign port 20000
+	serv_addr.sin_port			= htons(PORT);  // Assign port 20000
 
 
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
@@ -76,11 +77,12 @@ int main()
 
 		// Open filename received from client
 		int file = open(buf, O_RDONLY);
+		int num_bytes = 0, pos;
 
 		if (file == -1)
 		{
 			perror("Unable to open file ");
-			send(newsockfd, "E", 1, 0);
+			send(newsockfd, "E", 1, 0);		// Send 'E' marking error
 			close(newsockfd);
 			continue;
 		}
@@ -88,7 +90,6 @@ int main()
 		{
 			printf("File opened.\n");
 			send(newsockfd, "L", 1, 0);
-			int pos;
 			for (pos = 1; ; pos++)
 			{
 				off_t old_position = lseek(file, 0, SEEK_CUR);
@@ -96,7 +97,7 @@ int main()
 				// printf("old_position %d\n", old_position);
 				if(old_position == end_position)
 				    break;
-				if (lseek(file, pos, SEEK_SET) < 0)
+				if (lseek(file, pos, SEEK_SET) < 0)		// Move by pos in absolute terms
 				{
 					perror("Some error occured");
 					close(newsockfd);
@@ -108,7 +109,7 @@ int main()
 			
 			send(newsockfd, &pos, sizeof(int), 0);
 
-			int pos_beg = lseek(file, 0, SEEK_SET);
+			int pos_beg = lseek(file, 0, SEEK_SET);		// Return to the beginning
 			printf("pos: %d\n", pos_beg);
 			if (pos_beg)
 			{
@@ -125,7 +126,7 @@ int main()
 			{
 				int exp_len;
 				if (iter == pos/B + 1)
-					exp_len = pos % B;
+					exp_len = pos % B;		// For the last iter
 				else
 					exp_len = B;
 
@@ -136,27 +137,31 @@ int main()
 				int read_bytes = read(file, buf_temp, exp_len);
 
 				printf("Read: %s\n", buf_temp);
-				// Read from file complete
-				if (read_bytes <= 0)
+
+				if (read_bytes < 0)
 				{
-					printf("Reading complete\n");
-					close(file);
+					perror("Some error occured");
 					close(newsockfd);
-					break;
+					close(file);
+					exit(EXIT_FAILURE);
 				}
-
+				else
+				{
+					num_bytes += read_bytes;
+				}
 				// find length of buffer read
-				int len = strlen(buf_temp);
-
-				// send to client
-				send(newsockfd, buf_temp, strlen(buf_temp), 0);
+				send(newsockfd, buf_temp, exp_len, 0);
 				printf("Data sent from server\n");
 			}
-			continue;
 		}
 
+		if (num_bytes == pos)
+			printf("Reading complete successfully\n");
+		else
+			printf("Some error occured while reading\n");
 		// Close the socket
 		close(newsockfd);
+		close(file);
 	}
 }
 			

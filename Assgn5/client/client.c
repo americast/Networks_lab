@@ -18,6 +18,7 @@ Sayan Sinha
 #include <time.h>
 
 #define B 20
+#define PORT 20000
 
 void delay(unsigned int mseconds)
 {
@@ -42,7 +43,7 @@ int main()
 	// Set server address
 	serv_addr.sin_family	= AF_INET;
 	inet_aton("127.0.0.1", &serv_addr.sin_addr);
-	serv_addr.sin_port	= htons(20000);
+	serv_addr.sin_port	= htons(PORT);
 
 	// Connect to server and handshake
 	if ((connect(sockfd, (struct sockaddr *) &serv_addr,
@@ -78,12 +79,13 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	if (code != 'L')
+	if (code != 'L')		// i.e. is the code is 'E'
 	{
 		printf("File not found\n");
 		exit(EXIT_SUCCESS);
 	}
 
+	// Open the file
 	file = open(buf, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
 
 	n = recv(sockfd, &len, sizeof(len), MSG_WAITALL);
@@ -103,7 +105,7 @@ int main()
 	{
 		int exp_len;
 		if (iter == len/B + 1)
-			exp_len = len % B;
+			exp_len = len % B;		// Checks if this is the last iter
 		else
 			exp_len = B;
 
@@ -119,9 +121,7 @@ int main()
 			exit(EXIT_FAILURE);
 		}
 		else
-		{
-			byte_count += n;
-		}
+			byte_count += n;  // For parity checking at the end
 
 		printf("Received %s\n", buf_temp);
 		// If reading is incomplete, write to file
@@ -131,6 +131,8 @@ int main()
 	}
 	if (byte_count == len)
 		printf("The file transfer is successful.\n");
+	else
+		printf("File transfer unsucessful.\n");
 
 	// Close the socket
 	close(sockfd);
