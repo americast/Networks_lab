@@ -314,9 +314,9 @@ int main()
 
 				while(1)
 				{
-					char buf_temp[BUF_SIZE];
-					memset(buf_temp, 0, BUF_SIZE);
-					unsigned short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
+					char all[3+BUF_SIZE];
+					memset(all, 0, 3+BUF_SIZE);
+					unsigned short read_bytes = read(file, all + 3, BUF_SIZE - 1);
 
 					if (read_bytes <= 0)
 					{
@@ -339,34 +339,13 @@ int main()
 
 					// find length of buffer read
 					// printf("read_bytes: %d\n", read_bytes);
-					int len = strlen(buf_temp);
 
-					char all[4+read_bytes];
+					// char all[4+read_bytes];
 
 					all[0] = 'S';
-					all[1] = 'T';
-					all[2] = 'U';
-					all[3] = '\0';
 					// strcat(all,"STU");
-					strcat(all, buf_temp);
 					all[2] = (read_bytes % 256);
 					all[1] = (read_bytes / 256);
-					// all[3] = '\0';
-					// printf("Len till here: %d\n", strlen(all));
-					// printf("To send %d, all[1]: %d, all[2]: %d, rest: %s, buf_temp: %s\n", read_bytes, all[1], all[2], all+3, buf_temp);
-
-					// // send to server
-					// if (send(newsockfd_put, "S", 1, 0) < 0)
-					// {
-					// 	perror("Unable to send data");
-					// 	exit(EXIT_FAILURE);
-					// }
-
-					// if (send(newsockfd_put, &read_bytes, sizeof(read_bytes), 0)  < 0)
-					// {
-					// 	perror("Unable to send data");
-					// 	exit(EXIT_FAILURE);
-					// }
 
 					if (send(newsockfd_put, all, 3+read_bytes, 0)  < 0)
 					{

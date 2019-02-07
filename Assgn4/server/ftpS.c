@@ -186,11 +186,10 @@ int main()
 
 						while(1)
 						{
-							char buf_temp[BUF_SIZE];
-							memset(buf_temp, 0, BUF_SIZE);
+							char all[3+BUF_SIZE];
+							memset(all, 0, 3+BUF_SIZE);
 							printf("Reading from file\n");
-							unsigned short read_bytes = read(file, buf_temp, BUF_SIZE - 1);
-							printf("Read: %s\n", buf_temp);
+							unsigned short read_bytes = read(file, all + 3, BUF_SIZE - 1);
 							// Read from file complete
 							if (read_bytes <= 0)
 							{
@@ -215,16 +214,8 @@ int main()
 							}
 
 							// find length of buffer read
-							int len = strlen(buf_temp);
-							printf("len: %d\n", len);
 
-							char all[4+read_bytes];
 							all[0] = 'S';
-							all[1] = 'T';
-							all[2] = 'U';
-							all[3] = '\0';
-
-							strcat(all, buf_temp);
 
 							all[2] = (read_bytes % 256);
 							all[1] = (read_bytes / 256);
