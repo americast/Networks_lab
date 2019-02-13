@@ -100,7 +100,7 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	int iter;
+	int iter, last_block_size;
 	for (iter = 1; iter <= len/B + 1; iter++)	// use i as a count variable
 	{
 		int exp_len;
@@ -121,7 +121,10 @@ int main()
 			exit(EXIT_FAILURE);
 		}
 		else
+		{
 			byte_count += n;  // For parity checking at the end
+			last_block_size = n;
+		}
 
 		printf("Received %s\n", buf_temp);
 		// If reading is incomplete, write to file
@@ -130,7 +133,11 @@ int main()
 
 	}
 	if (byte_count == len)
+	{
 		printf("The file transfer is successful.\n");
+		printf("Total number of blocks received: %d\n", iter - 1);
+		printf("Last block size: %d\n", last_block_size);
+	}
 	else
 		printf("File transfer unsucessful.\n");
 
