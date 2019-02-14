@@ -46,6 +46,9 @@ int main()
   else
     printf("Connection established\n");
 
+  char req[] = "handshake";
+  send(sockfd, req, strlen(req) + 1, 0);
+
   int word_count = 0, read_word = 1, null_count = 0, done_flag = 0;
   for (i = 1; ; i++)  // use i as a count variable
   {

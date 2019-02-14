@@ -140,6 +140,10 @@ int main()
 			}
 			if (p==0)  // Child process
 			{
+				char req[100];
+				recv(newsockfd, req, 100, 0);
+				if (strcmp(req, "handshake"))
+					exit(EXIT_FAILURE);
 				printf("Opening file word.txt\n");
 
 				FILE *fp = fopen("word.txt", "r");  // Open file using pointer
@@ -183,8 +187,9 @@ int main()
 					exit(EXIT_SUCCESS);
 				}
 			}
-		}		
+		}
 	}
+	close(sockfd_udp);
 }
 			
 
