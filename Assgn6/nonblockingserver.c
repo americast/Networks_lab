@@ -45,6 +45,12 @@ int main()
 	serv_addr.sin_addr.s_addr	= INADDR_ANY;
 	serv_addr.sin_port		= htons(PORT_UDP);	// Set server address for UDP
 
+	if (setsockopt(sockfd_udp, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+	{
+		perror("Could not reuse port");
+		exit(EXIT_FAILURE);
+	}
+
 	if (bind(sockfd_udp, (struct sockaddr *) &serv_addr,  // bind the UDP server
 					sizeof(serv_addr)) < 0) {
 		perror("Unable to bind local address ");
@@ -53,6 +59,12 @@ int main()
 
 
 	serv_addr.sin_port		= htons(PORT_TCP);  // Set server address for TCP
+
+	if (setsockopt(sockfd_tcp, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+	{
+		perror("Could not reuse port");
+		exit(EXIT_FAILURE);
+	}
 
 	if (bind(sockfd_tcp, (struct sockaddr *) &serv_addr,  // bind the server for TCP
 					sizeof(serv_addr)) < 0) {
