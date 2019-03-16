@@ -8,12 +8,21 @@
 
 #define PORT 5000
 
-int* uack_msg_table[100];
-int* recv_msg_table[100];
-char* buf[100];
+struct msg
+{
+	time_t time;
+	char buf[100];
+	int len;
+	int dest_port;
+};
+
+typedef struct msg msg;
+
+msg* uack_msg_table;
+msg* recv_msg_table;
+char* buf;
 int count = 0;
-pthread_t X[100]; 
-int mapping[100];
+pthread_t X; 
 
 struct socket
 {
