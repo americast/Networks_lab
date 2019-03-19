@@ -225,7 +225,7 @@ int r_close(int sockfd)
 	free(unack_msg_table);
 	free(recv_msg_table);
 	free(recv_buffer);
-	pthread_kill(&X);
+	pthread_cancel(X);
 	close(sockfd);
 	char buf_test[] = "A quick brown fox jumps over the lazy dog.";
 	// printf("prob_sent_counter %d\n", prob_sent_counter);
