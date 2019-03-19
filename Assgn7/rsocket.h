@@ -10,7 +10,7 @@
 
 #define TIME_THRESH 2
 #define SOCK_MRP SOCK_DGRAM
-#define DROP_PROB 0.10
+#define DROP_PROB 0.5
 
 struct msg
 {

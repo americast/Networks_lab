@@ -2,7 +2,7 @@
 
 int main() { 
     int sockfd; 
-    struct sockaddr_in servaddr; 
+    struct sockaddr_in servaddr, ownconfig; 
   
     // Creating socket file descriptor 
     sockfd = r_socket(AF_INET, SOCK_DGRAM, 0);
@@ -12,11 +12,24 @@ int main() {
     } 
   
     memset(&servaddr, 0, sizeof(servaddr)); 
+    memset(&ownconfig, 0, sizeof(ownconfig)); 
       
     // Server information 
     servaddr.sin_family = AF_INET; 
     servaddr.sin_port = htons(50000 + (2 * 10048) + 1); 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
+
+
+
+    ownconfig.sin_family    = AF_INET; 
+    ownconfig.sin_addr.s_addr = INADDR_ANY; 
+    ownconfig.sin_port = htons(50000 + (2 * 10048)); 
+    if (r_bind(sockfd, (const struct sockaddr *)&ownconfig,  sizeof(ownconfig)) < 0)
+    {
+        perror("Unable to bind");
+        exit(EXIT_FAILURE);
+    }
+    printf("Binding complete\n");
       
     int n;
     socklen_t len;
