@@ -35,6 +35,7 @@ void sendAck(int sockfd, short header, int i)
 	memcpy(buf_temp, &prepend, sizeof(short));
 	memcpy(buf_temp + sizeof(short), &header, sizeof(short));
 	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, recv_msg_table[i].addr, sizeof(recv_msg_table[i].addr));
+	printf("Ack sent\n");
 }
 
 void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr* addr)
@@ -42,6 +43,7 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 	printf("In app receive\n");
 	int i;
 	int found = 0;
+	printf("Recv count: %d\n", recv_count);
 	for (i = 0; i < recv_count; i++)
 	{
 		if (recv_msg_table[i].counter == header)
@@ -52,13 +54,13 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 	}
 	if (found == 0)
 	{
-		printf("Before memcpy\n", n);
 		memcpy(recv_buffer[recv_buffer_count].buf, buf + sizeof(short), n - sizeof(short));
-		printf("After memcpy\n");
 		recv_buffer[recv_buffer_count].len = n - sizeof(short);
 		recv_buffer[recv_buffer_count].addr = addr;
 		recv_buffer_count++;
+		printf("Before recv_msg_table update\n", n);
 		recv_msg_table[recv_count].counter = header;
+		printf("After recv_msg_table update\n");
 		recv_msg_table[recv_count].addr = addr;
 		recv_count++;
 	}
@@ -217,7 +219,7 @@ int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, so
 	int j;
 	for (j = 0; j < recv_buffer_count - 1; j++)
 		recv_buffer[j] = recv_buffer[j + 1];
-	recv_count--;
+	recv_buffer_count--;
 	return len_to_ret;
 }
 

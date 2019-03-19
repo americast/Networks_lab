@@ -31,7 +31,7 @@ struct recv_buf
 
 struct recv_msg
 {
-	int counter;
+	short counter;
 	struct sockaddr* addr;
 };
 
