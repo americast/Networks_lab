@@ -18,7 +18,7 @@ int main()
 
 	servaddr.sin_family    = AF_INET; 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
-    servaddr.sin_port = htons(8181); 
+    servaddr.sin_port = htons(50000 + (2 * 10048) + 1); 
     if (r_bind(sockfd, (const struct sockaddr *)&servaddr,  sizeof(servaddr)) < 0)
     {
     	perror("Unable to bind");

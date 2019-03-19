@@ -1,0 +1,5 @@
+gcc -g -c rsocket.c -o rsocket.o -pthread && \
+ar rcs librsocket.a rsocket.o && \
+gcc -g -c -lpthread user1.c -o user1.o -pthread && \
+gcc -g -o user1 user1.o -L. -lrsocket -pthread && \
+./user1

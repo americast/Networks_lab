@@ -8,9 +8,9 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define PORT 5000
 #define TIME_THRESH 2
 #define SOCK_MRP SOCK_DGRAM
+#define DROP_PROB 0.10
 
 struct msg
 {
@@ -51,6 +51,9 @@ char* buf_total;
 // int count;
 short send_count;
 pthread_t X; 
+pthread_mutex_t lock_uack_count, lock_recv_count, lock_recv_buffer_count, lock_prob_sent_counter; 
+
+int prob_sent_counter;
 
 void HandleRetransmit(int);
 
@@ -73,3 +76,5 @@ int r_recvfrom(int, char*, int, const struct sockaddr *, socklen_t);
 int r_bind(int, const struct sockaddr*, socklen_t);
 
 int r_close(int);
+
+int dropMessage(float);
