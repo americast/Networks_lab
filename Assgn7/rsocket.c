@@ -18,13 +18,22 @@ void HandleRetransmit()
 	}
 }
 
-void HandleAppMsgRecv(int header, char* buf, char* content, int n)
+void sendAck(int sockfd, short header)
+{
+	char buf_temp[2* sizeof(short)];
+	short prepend = 1234;
+	memcpy(buf_temp, &prepend, sizeof(short));
+	memcpy(buf_temp + sizeof(short), &header, sizeof(short));
+	sendto(sockfd, buf_temp, 2 * sizeof(short), recv_msg_table[i].addr, len(recv_msg_table[i].addr));
+}
+
+void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, (struct sockaddr*) addr)
 {
 	int i;
 	int found = 0;
 	for (i = 0; i < recv_count; i++)
 	{
-		if (i == header)
+		if (recv_msg_table[i].counter == header)
 		{
 			found = 1;
 			break;
@@ -32,56 +41,57 @@ void HandleAppMsgRecv(int header, char* buf, char* content, int n)
 	}
 	if (found == 0)
 	{
-		memcpy(content, buf + sizeof(int), n - sizeof(int));
-		recv_buffer = (char *) realloc (recv_buffer_size + n - sizeof(int));
-		memcpy(recv_buffer + recv_buffer_size, content, n - sizeof(int));
-		recv_buffer_size += n - sizeof(int);
-		recv_msg_table[recv_count++] = header;
+		memcpy(recv_buffer[recv_buffer_count], buf + sizeof(short), n - sizeof(short));
+		recv_buffer[recv_buffer_count].len = n - sizeof(short);
+		recv_buffer[recv_buffer_count].addr = addr;
+		recv_buffer_count++;
+		recv_msg_table[recv_count].counter = header;
+		recv_msg_table[recv_count].addr = addr;
+		recv_count++;
 	}
-	sendAck(header);
+	sendAck(sockfd, header, i);
 }
 
-void HandleReceive()
+void HandleACKMsgRecv(char* buf)
+{
+	short counter_here, found = 0;
+	memcpy(&counter_here, buf + sizeof(short), sizeof(short));
+	int i;
+	for (i = 0; i < uack_count; i++)
+	{
+		short counter_only_here = unack_msg_table[i].counter;
+		if (counter_only_here == counter_here)
+		{
+			found = 1;
+			break;
+		}
+	}
+	if (found)
+	{
+		int j;
+		for (j = i; j < uack_count - 1; j++)
+			unack_msg_table[j] = unack_msg_table[j + 1];
+		uack_count--;
+	}
+}
+
+void HandleReceive(int sockfd)
 {
 	struct sockaddr_in cliaddr;
 	int clilen = sizeof(cliaddr);
-	char buf[100], content[100 - sizeof(int)];
-	int n = recvfrom(sockfd, buf, 100, ( struct sockaddr *) &cliaddr, clilen);
+	char buf[sizeof(short) + 100], content[100];
+	int n = recvfrom(sockfd, buf, sizeof(short) + 100, ( struct sockaddr *) &cliaddr, clilen);
 	int header;
-	memcpy(&header, buf, sizeof(int));
-	if (header == 1234) // Ack
-	{
-		int counter_here, found = 0;
-		memcpy(&counter_here, buf + sizeof(int), sizeof(int));
-		int i;
-		for (i = 0; i < uack_count; i++)
-		{
-			int counter_only_here;
-			memcpy(&counter_only_here, unack_msg_table[i].buf, sizeof(int));
-			if (counter_only_here == counter_here)
-			{
-				found = 1;
-				break;
-			}
-		}
-		if (found)
-		{
-			int j;
-			for (j = i; j < uack_count - 1; j++)
-				unack_msg_table[j] = unack_msg_table[j + 1];
-			uack_count--;
-		}
-	}
+	memcpy(&header, buf, sizeof(short));
+	if (header > 100) // Ack
+		HandleACKMsgRecv(buf);	
 	else
-	{
-		HandleAppMsgRecv(header, buf, content, n);
-		recv_msg_table[recv_count].buf = buf+sizeof(int);
-		recv_msg_table[recv_count++].addr = cliaddr;
-	}
+		HandleAppMsgRecv(sockfd, header, buf, content, n, &cliaddr);
 }
 
 void* threadX(void *vargp) 
-{ 
+{
+	int sockfd = *((int *) vargp); 
 	fd_set sock;
 	struct timeval tv;
 	tv.tv_sec = 2;
@@ -92,61 +102,60 @@ void* threadX(void *vargp)
 
 		int selected = select(sockfd + 1, &sock, NULL, NULL, tv);
 		if (FD_ISSET(sockfd, &sock))
-			HandleReceive();
+			HandleReceive(sockfd);
 		else
 			HandleRetransmit();
 
 	}
 } 
 
-int r_socket()
+int r_socket(int domain, int type, int protocol)
 {
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	int sockfd = socket(domain, SOCK_DGRAM, protocol);
 	if (sockfd < 0)
 	{
 		perror("Unable to create socket");
 		return sockfd;
 	}
-	pthread_create(&X, NULL, threadX, NULL);
+	int *arg = malloc(sizeof(*arg));
+	*arg = sockfd;
+	pthread_create(&X, NULL, threadX, arg);
 	unack_msg_table = (msg *) malloc(100 * sizeof(msg));
-	recv_msg_table = (int *) malloc(100 * sizeof(int));
-	buf = (char *) malloc(100 * sizeof(char));
+	recv_msg_table = (recv_msg *) malloc(100 * sizeof(recv_msg));
+	recv_buffer = (recv_buf *) malloc(100 * sizeof(recv_buffer));
+	buf_total = (char *) malloc(sizeof(short) + 100 * sizeof(char));
 	usleep(10000);
-	count++;
+	// count++;
 	return sockfd;
 }
 
 int r_sendto(int sockfd, const void *buf_here, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
 	int counter = 0;
-	int buf_size = 100 - sizeof(int);
+	int buf_size = 100;
 	while(1)
 	{
-		int stat;
+		if (len <= 0)
+			break;
+		int stat, amt;
 		if (len > buf_size)
-		{
-			memcpy(buf, &send_count, sizeof(int));
-			memcpy(buf + sizeof(int), buf_here + (counter * buf_size), buf_size);
-			msg[count].time = time(NULL);
-			memcpy(msg[count].buf, &send_count, sizeof(int));
-			memcpy(msg[count].buf + sizeof(int), buf_here + (counter * buf_here), buf_size);
-			msg[count].len = buf_size;
-			uack_count++;
-			send_count++;
-			stat = sendto(sockfd, buf, buf_size, flags, dest_addr, addrlen);
-			len -= buf_size;
-		}
+			amt = buf_size;
 		else
-		{
-			memcpy(buf, &counter, sizeof(int));
-			memcpy(buf + sizeof(int), buf_here + (count * buf_size), len);
-			msg[count].time = time(NULL);
-			memcpy(msg[count].buf, &counter, sizeof(int));
-			memcpy(msg[count].buf + sizeof(int), buf_here + (count * buf_here), len);
-			msg[count].len = len;
-			uack_count++;
-			stat = sendto(sockfd, buf, len, flags, dest_addr, addrlen);
-		}
+			amt = len;
+
+		memcpy(buf_total, &send_count, sizeof(short));
+		memcpy(buf_total + sizeof(short), buf_here + (counter * buf_size), amt);
+		unack_msg_table[uack_count].time = time(NULL);
+		unack_msg_table[uack_count].counter = send_count;
+		memcpy(unack_msg_table[uack_count].buf, buf_here + (counter * buf_here), amt);
+		unack_msg_table[uack_count].len = amt;
+		unack_msg_table[uack_count].dest_addr = dest_addr;
+		unack_msg_table[uack_count].addrlen = addrlen;
+		uack_count++;
+		send_count++;
+		stat = sendto(sockfd, buf_total, sizeof(short) + amt, flags, dest_addr, addrlen);
+		len -= buf_size;
+	
 		if (stat < 0)
 			return stat;
 		counter+=1
@@ -156,24 +165,24 @@ int r_sendto(int sockfd, const void *buf_here, size_t len, int flags, const stru
 
 int r_recvfrom(int sockfd, char *buf, int len)
 {
-	while (recv_count == 0)
+	while (recv_buffer_count == 0)
 		sleep(1);
 	int len_to_ret;
-	if (recv_msg_table[0].len <= len)
-	{
-		len_to_ret = recv_msg_table[0].len;
-		memcpy(buf, recv_msg_table[0].buf, recv_msg_table[0].len);
-	}
+	if (recv_buffer[0].len <= len)
+		len_to_ret = recv_buffer[0].len;
 	else
-	{
 		len_to_ret = len;
-		memcpy(buf, recv_msg_table[0].buf, len);
-	}
+	memcpy(buf, recv_buffer[0].buf, len_to_ret);
 	int j;
-	for (j = 0; j < recv_count - 1; j++)
-		recv_msg_table[j] = recv_msg_table[j + 1];
+	for (j = 0; j < recv_buffer_count - 1; j++)
+		recv_buffer[j] = recv_buffer[j + 1];
 	recv_count--;
 	return len_to_ret;
+}
+
+int r_bind(int sockfd, (const struct sockaddr*) servaddr,  socklen_t addrlen)
+{
+	return bind(sockfd, &servaddr,  addrlen);
 }
 
 int r_close(int sockfd)
