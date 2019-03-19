@@ -26,13 +26,13 @@ struct recv_buf
 {
 	char buf[100];
 	int len;
-	struct sockaddr* addr;
+	struct sockaddr_in addr;
 };
 
 struct recv_msg
 {
 	short counter;
-	struct sockaddr* addr;
+	struct sockaddr_in addr;
 };
 
 typedef struct msg msg;
@@ -56,7 +56,7 @@ void HandleRetransmit(int);
 
 void sendAck(int, short, int);
 
-void HandleAppMsgRecv(int, short, char*, int, struct sockaddr*);
+void HandleAppMsgRecv(int, short, char*, int, struct sockaddr_in);
 
 void HandleACKMsgRecv(char*);
 

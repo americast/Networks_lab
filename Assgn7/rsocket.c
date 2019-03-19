@@ -34,11 +34,11 @@ void sendAck(int sockfd, short header, int i)
 	short prepend = 1234;
 	memcpy(buf_temp, &prepend, sizeof(short));
 	memcpy(buf_temp + sizeof(short), &header, sizeof(short));
-	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, recv_msg_table[i].addr, sizeof(recv_msg_table[i].addr));
+	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, (struct sockaddr *) &recv_msg_table[i].addr, sizeof(recv_msg_table[i].addr));
 	printf("Ack sent\n");
 }
 
-void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr* addr)
+void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr_in addr)
 {
 	printf("In app receive\n");
 	int i;
@@ -109,7 +109,7 @@ void HandleReceive(int sockfd)
 	if (header > 100) // Ack
 		HandleACKMsgRecv(bufn);	
 	else
-		HandleAppMsgRecv(sockfd, header, bufn, n, &cliaddr);
+		HandleAppMsgRecv(sockfd, header, bufn, n, cliaddr);
 }
 
 void* threadX(void* vargp) 
@@ -215,7 +215,7 @@ int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, so
 	else
 		len_to_ret = len;
 	memcpy(buf, recv_buffer[0].buf, len_to_ret);
-	memcpy(addr, recv_buffer[0].addr, sizeof(recv_buffer[0].addr));
+	memcpy(addr, (struct sockaddr *) &recv_buffer[0].addr, sizeof(recv_buffer[0].addr));
 	int j;
 	for (j = 0; j < recv_buffer_count - 1; j++)
 		recv_buffer[j] = recv_buffer[j + 1];
