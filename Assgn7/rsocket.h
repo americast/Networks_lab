@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 
 #define PORT 5000
+#define TIME_THRESH 120
 
 struct msg
 {
@@ -36,7 +37,7 @@ typedef struct msg msg;
 typedef struct recv_msg recv_msg;
 typedef struct recv_buf recv_buf;
 
-msg* uack_msg_table;
+msg* unack_msg_table;
 recv_msg* recv_msg_table;
 recv_buf* recv_buffer;	 // need to store port
 int recv_buffer_count = 0;
@@ -49,17 +50,24 @@ char* buf_total;
 short send_count = 0;
 pthread_t X; 
 
-struct socket
-{
-	int sockfd;
-	int dest_port;
-};
+void HandleRetransmit(int);
 
-typedef struct socket socket;
+void sendAck(int, short, int);
 
-int r_socket(socket*);
+void HandleAppMsgRecv(int, short, char*, int, struct sockaddr*);
 
-int r_sendto(int, char*, int, x, const struct  sockaddr *, int)
-{
-	
-};
+void HandleACKMsgRecv(char*);
+
+void HandleReceive(int);
+
+void* threadX(void*);
+
+int r_socket(int, int, int);
+
+int r_sendto(int, const void*, size_t, int, const struct sockaddr*, socklen_t);
+
+int r_recvfrom(int, char*, int, const struct sockaddr *, socklen_t);
+
+int r_bind(int, const struct sockaddr*, socklen_t);
+
+int r_close(int);

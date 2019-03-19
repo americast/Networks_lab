@@ -1,6 +1,6 @@
 #include "rsocket.h"
 
-void HandleRetransmit()
+void HandleRetransmit(int sockfd)
 {
 	if (uack_count)
 	{
@@ -18,16 +18,16 @@ void HandleRetransmit()
 	}
 }
 
-void sendAck(int sockfd, short header)
+void sendAck(int sockfd, short header, int i)
 {
 	char buf_temp[2* sizeof(short)];
 	short prepend = 1234;
 	memcpy(buf_temp, &prepend, sizeof(short));
 	memcpy(buf_temp + sizeof(short), &header, sizeof(short));
-	sendto(sockfd, buf_temp, 2 * sizeof(short), recv_msg_table[i].addr, len(recv_msg_table[i].addr));
+	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, recv_msg_table[i].addr, len(recv_msg_table[i].addr));
 }
 
-void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, (struct sockaddr*) addr)
+void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr* addr)
 {
 	int i;
 	int found = 0;
@@ -41,7 +41,7 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, (struct sockad
 	}
 	if (found == 0)
 	{
-		memcpy(recv_buffer[recv_buffer_count], buf + sizeof(short), n - sizeof(short));
+		memcpy(recv_buffer[recv_buffer_count].buf, buf + sizeof(short), n - sizeof(short));
 		recv_buffer[recv_buffer_count].len = n - sizeof(short);
 		recv_buffer[recv_buffer_count].addr = addr;
 		recv_buffer_count++;
@@ -79,17 +79,17 @@ void HandleReceive(int sockfd)
 {
 	struct sockaddr_in cliaddr;
 	int clilen = sizeof(cliaddr);
-	char buf[sizeof(short) + 100], content[100];
-	int n = recvfrom(sockfd, buf, sizeof(short) + 100, ( struct sockaddr *) &cliaddr, clilen);
+	char buf[sizeof(short) + 100];
+	int n = recvfrom(sockfd, buf, sizeof(short) + 100, 0, ( struct sockaddr *) &cliaddr, clilen);
 	int header;
 	memcpy(&header, buf, sizeof(short));
 	if (header > 100) // Ack
 		HandleACKMsgRecv(buf);	
 	else
-		HandleAppMsgRecv(sockfd, header, buf, content, n, &cliaddr);
+		HandleAppMsgRecv(sockfd, header, buf, n, &cliaddr);
 }
 
-void* threadX(void *vargp) 
+void* threadX(void* vargp) 
 {
 	int sockfd = *((int *) vargp); 
 	fd_set sock;
@@ -100,11 +100,11 @@ void* threadX(void *vargp)
 		FD_ZERO(&sock);
 		FD_SET(sockfd, &sock);
 
-		int selected = select(sockfd + 1, &sock, NULL, NULL, tv);
+		int selected = select(sockfd + 1, &sock, NULL, NULL, &tv);
 		if (FD_ISSET(sockfd, &sock))
 			HandleReceive(sockfd);
 		else
-			HandleRetransmit();
+			HandleRetransmit(sockfd);
 
 	}
 } 
@@ -129,7 +129,7 @@ int r_socket(int domain, int type, int protocol)
 	return sockfd;
 }
 
-int r_sendto(int sockfd, const void *buf_here, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
+int r_sendto(int sockfd, const void* buf_here, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t addrlen)
 {
 	int counter = 0;
 	int buf_size = 100;
@@ -147,7 +147,7 @@ int r_sendto(int sockfd, const void *buf_here, size_t len, int flags, const stru
 		memcpy(buf_total + sizeof(short), buf_here + (counter * buf_size), amt);
 		unack_msg_table[uack_count].time = time(NULL);
 		unack_msg_table[uack_count].counter = send_count;
-		memcpy(unack_msg_table[uack_count].buf, buf_here + (counter * buf_here), amt);
+		memcpy(unack_msg_table[uack_count].buf, buf_here + (counter * buf_size), amt);
 		unack_msg_table[uack_count].len = amt;
 		unack_msg_table[uack_count].dest_addr = dest_addr;
 		unack_msg_table[uack_count].addrlen = addrlen;
@@ -158,12 +158,12 @@ int r_sendto(int sockfd, const void *buf_here, size_t len, int flags, const stru
 	
 		if (stat < 0)
 			return stat;
-		counter+=1
+		counter+=1;
 	}
 	return 1;
 }
 
-int r_recvfrom(int sockfd, char *buf, int len)
+int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, socklen_t addrlen)
 {
 	while (recv_buffer_count == 0)
 		sleep(1);
@@ -173,6 +173,7 @@ int r_recvfrom(int sockfd, char *buf, int len)
 	else
 		len_to_ret = len;
 	memcpy(buf, recv_buffer[0].buf, len_to_ret);
+	addr = recv_buffer[0].addr;
 	int j;
 	for (j = 0; j < recv_buffer_count - 1; j++)
 		recv_buffer[j] = recv_buffer[j + 1];
@@ -180,7 +181,7 @@ int r_recvfrom(int sockfd, char *buf, int len)
 	return len_to_ret;
 }
 
-int r_bind(int sockfd, (const struct sockaddr*) servaddr,  socklen_t addrlen)
+int r_bind(int sockfd, const struct sockaddr* servaddr,  socklen_t addrlen)
 {
 	return bind(sockfd, &servaddr,  addrlen);
 }
