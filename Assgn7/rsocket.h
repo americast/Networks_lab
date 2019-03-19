@@ -6,16 +6,18 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #define PORT 5000
-#define TIME_THRESH 120
+#define TIME_THRESH 2
+#define SOCK_MRP SOCK_DGRAM
 
 struct msg
 {
 	time_t time;
 	short counter;
 	char buf[100];
-	int len;
+	size_t len;
 	struct sockaddr* dest_addr;
 	socklen_t addrlen;
 };
@@ -40,14 +42,14 @@ typedef struct recv_buf recv_buf;
 msg* unack_msg_table;
 recv_msg* recv_msg_table;
 recv_buf* recv_buffer;	 // need to store port
-int recv_buffer_count = 0;
+int recv_buffer_count;
 int recv_size;
-int uack_count = 0;
-int recv_count = 0;
+int uack_count;
+int recv_count;
 // int sockfd;
 char* buf_total;
-// int count = 0;
-short send_count = 0;
+// int count;
+short send_count;
 pthread_t X; 
 
 void HandleRetransmit(int);
@@ -64,7 +66,7 @@ void* threadX(void*);
 
 int r_socket(int, int, int);
 
-int r_sendto(int, const void*, size_t, int, const struct sockaddr*, socklen_t);
+int r_sendto(int, const void*, size_t, const struct sockaddr*, socklen_t);
 
 int r_recvfrom(int, char*, int, const struct sockaddr *, socklen_t);
 

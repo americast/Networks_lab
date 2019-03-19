@@ -2,17 +2,27 @@
 
 void HandleRetransmit(int sockfd)
 {
+	// printf("Will retransmit\n");
 	if (uack_count)
 	{
+		// printf("Yeah Will retransmit\n");
 		int i;
 		for (i = 0; i < uack_count; i++)
 		{
 			msg here = unack_msg_table[i];
 			time_t now = time(NULL);
-			if (now - here.time > TIME_THRESH)
+			// printf("Time gone: %d\n", (int)(now - here.time));
+			// printf("Now time: %d\n", (int)(now));
+			// printf("Here time: %d\n", (int)(here.time));
+			if ((int)(now - here.time) >= TIME_THRESH)
 			{
 				unack_msg_table[i].time = now;
-				sendto(sockfd, here.buf, here.len, 0, here.dest_addr, here.addrlen);
+				char buf_total_here[sizeof(short) + 100];
+				memcpy(buf_total_here, &(here.counter), sizeof(short));
+				memcpy(buf_total_here + sizeof(short), here.buf, here.len);
+				sendto(sockfd, buf_total_here, sizeof(short) + here.len, 0, here.dest_addr, here.addrlen);
+				printf("Retransmitted\n");
+				// exit(0);
 			}
 		}
 	}
@@ -24,11 +34,12 @@ void sendAck(int sockfd, short header, int i)
 	short prepend = 1234;
 	memcpy(buf_temp, &prepend, sizeof(short));
 	memcpy(buf_temp + sizeof(short), &header, sizeof(short));
-	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, recv_msg_table[i].addr, len(recv_msg_table[i].addr));
+	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, recv_msg_table[i].addr, sizeof(recv_msg_table[i].addr));
 }
 
 void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr* addr)
 {
+	printf("In app receive\n");
 	int i;
 	int found = 0;
 	for (i = 0; i < recv_count; i++)
@@ -41,7 +52,9 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 	}
 	if (found == 0)
 	{
+		printf("Before memcpy\n", n);
 		memcpy(recv_buffer[recv_buffer_count].buf, buf + sizeof(short), n - sizeof(short));
+		printf("After memcpy\n");
 		recv_buffer[recv_buffer_count].len = n - sizeof(short);
 		recv_buffer[recv_buffer_count].addr = addr;
 		recv_buffer_count++;
@@ -54,6 +67,7 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 
 void HandleACKMsgRecv(char* buf)
 {
+	printf("In ack receive\n");
 	short counter_here, found = 0;
 	memcpy(&counter_here, buf + sizeof(short), sizeof(short));
 	int i;
@@ -78,15 +92,22 @@ void HandleACKMsgRecv(char* buf)
 void HandleReceive(int sockfd)
 {
 	struct sockaddr_in cliaddr;
+	memset(&cliaddr, 0, sizeof(cliaddr));
 	int clilen = sizeof(cliaddr);
-	char buf[sizeof(short) + 100];
-	int n = recvfrom(sockfd, buf, sizeof(short) + 100, 0, ( struct sockaddr *) &cliaddr, clilen);
-	int header;
-	memcpy(&header, buf, sizeof(short));
+	char bufn[sizeof(short) + 100];
+	int n = recvfrom(sockfd, bufn, sizeof(short) + 100, 0, ( struct sockaddr *) &cliaddr, &clilen);
+	if (n < 0)
+	{
+		perror("Error in receipt");
+		exit(EXIT_FAILURE);
+	}
+	printf("Received internal: %s\nn is %d\n", bufn+sizeof(short), n);
+	short header;
+	memcpy(&header, bufn, sizeof(short));
 	if (header > 100) // Ack
-		HandleACKMsgRecv(buf);	
+		HandleACKMsgRecv(bufn);	
 	else
-		HandleAppMsgRecv(sockfd, header, buf, n, &cliaddr);
+		HandleAppMsgRecv(sockfd, header, bufn, n, &cliaddr);
 }
 
 void* threadX(void* vargp) 
@@ -101,10 +122,17 @@ void* threadX(void* vargp)
 		FD_SET(sockfd, &sock);
 
 		int selected = select(sockfd + 1, &sock, NULL, NULL, &tv);
+		// printf("Timeout\n");
 		if (FD_ISSET(sockfd, &sock))
+		{
+			printf("Recv\n");
 			HandleReceive(sockfd);
+		}
 		else
+		{
+			// printf("Retransmit\n");
 			HandleRetransmit(sockfd);
+		}
 
 	}
 } 
@@ -123,28 +151,39 @@ int r_socket(int domain, int type, int protocol)
 	unack_msg_table = (msg *) malloc(100 * sizeof(msg));
 	recv_msg_table = (recv_msg *) malloc(100 * sizeof(recv_msg));
 	recv_buffer = (recv_buf *) malloc(100 * sizeof(recv_buffer));
-	buf_total = (char *) malloc(sizeof(short) + 100 * sizeof(char));
+	buf_total = (char *) malloc(sizeof(short) + (100 * sizeof(char)));
+	recv_buffer_count = 0;
+	recv_size = 0;
+	uack_count = 0;
+	recv_count = 0;
+	send_count = 0;
 	usleep(10000);
 	// count++;
 	return sockfd;
 }
 
-int r_sendto(int sockfd, const void* buf_here, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t addrlen)
+int r_sendto(int sockfd, const void* buf_here, size_t len, const struct sockaddr* dest_addr, socklen_t addrlen)
 {
 	int counter = 0;
 	int buf_size = 100;
 	while(1)
 	{
-		if (len <= 0)
+		printf("len: %d\n", (int)len<=0);
+		if ((int)len <= 0)
+		{
+			printf("Break please\n");
 			break;
+		}
 		int stat, amt;
 		if (len > buf_size)
 			amt = buf_size;
 		else
 			amt = len;
-
+		printf("Here1\n");
 		memcpy(buf_total, &send_count, sizeof(short));
-		memcpy(buf_total + sizeof(short), buf_here + (counter * buf_size), amt);
+		printf("Here2\n");
+		memcpy(buf_total + sizeof(short), (char *) (buf_here + (counter * buf_size)), amt);
+		printf("Here3\n");
 		unack_msg_table[uack_count].time = time(NULL);
 		unack_msg_table[uack_count].counter = send_count;
 		memcpy(unack_msg_table[uack_count].buf, buf_here + (counter * buf_size), amt);
@@ -153,9 +192,10 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flags, const stru
 		unack_msg_table[uack_count].addrlen = addrlen;
 		uack_count++;
 		send_count++;
-		stat = sendto(sockfd, buf_total, sizeof(short) + amt, flags, dest_addr, addrlen);
+		stat = sendto(sockfd, buf_total, sizeof(short) + amt, 0, dest_addr, addrlen);
 		len -= buf_size;
-	
+		
+		printf("stat: %d\n", stat);
 		if (stat < 0)
 			return stat;
 		counter+=1;
@@ -173,7 +213,7 @@ int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, so
 	else
 		len_to_ret = len;
 	memcpy(buf, recv_buffer[0].buf, len_to_ret);
-	addr = recv_buffer[0].addr;
+	memcpy(addr, recv_buffer[0].addr, sizeof(recv_buffer[0].addr));
 	int j;
 	for (j = 0; j < recv_buffer_count - 1; j++)
 		recv_buffer[j] = recv_buffer[j + 1];
@@ -183,7 +223,7 @@ int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, so
 
 int r_bind(int sockfd, const struct sockaddr* servaddr,  socklen_t addrlen)
 {
-	return bind(sockfd, &servaddr,  addrlen);
+	return bind(sockfd, servaddr,  addrlen);
 }
 
 int r_close(int sockfd)
