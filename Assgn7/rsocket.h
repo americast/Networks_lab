@@ -1,3 +1,9 @@
+/****************
+Assignment 7
+Sayan Sinha
+16CS10048
+****************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,0 +1,82 @@
+/****************
+Assignment 7
+Sayan Sinha
+16CS10048
+****************/
+
+Text: "A quick brown fox jumps over the lazy dog."
+
+No of chars: 42
+
+Avg sends per char:
+
+Prob:   Actual, Expected
+------------------------
+0.05: 1.123809, 1.108033
+0.10: 1.176190, 1.234567
+0.15: 1.285714, 1.384083
+0.20: 1.523810, 1.562500
+0.25: 1.723809, 1.777778
+0.30: 1.995238, 2.040816
+0.35: 2.280952, 2.366864
+0.40: 2.866666, 2.777778
+0.45: 3.323809, 3.305785
+0.50: 4.123809, 4.000000
+
+The expected value of average no of sends per character is given by (1 / ((1 - p)^2)). A python script was used to compute the average value of 5 runs for each probability value. It is evident that the obtained value is pretty close to the expected value.
+
+Syntaxes:
+
+1) int r_socket(int domain, int type, int protocol)
+
+Supported `type`: SOCK_MRP only
+
+2) int r_sendto(int sockfd, const void* buf_here, size_t len, int flag, const struct sockaddr* dest_addr, socklen_t addrlen)
+
+All flags supported same as that in UDP
+
+3) int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen)
+
+Supported `flag`: 0 for normal execution, MSG_PEEK for peeking at message without removing from buffer.
+
+4) int r_bind(int sockfd, const struct sockaddr* servaddr,  socklen_t addrlen)
+
+Arguments same as socket binding.
+
+5) int r_close(int sockfd)
+
+Argument same as socket closing.
+
+List of data structures used:
+
+All data structures were arrays and were of the following form:
+
+msg unack_msg_table[];
+recv_msg recv_msg_table[];
+recv_buf recv_buffer[];
+
+where
+
+struct msg
+{
+	time_t time;			// Time of sending of message
+	short counter;			// Header of the message
+	char buf[100];			// Content of the message
+	int flags;			// Flags for sendto
+	size_t len;			// Length of the message
+	struct sockaddr* dest_addr;	// Destination address
+	socklen_t addrlen;		// Length of destination address
+};
+
+struct recv_msg
+{
+	short counter;			// Header of the received message
+	struct sockaddr_in addr;	// Client address from which the message was received
+};
+
+struct recv_buf
+{
+	char buf[100];			// Content of the received message
+	int len;			// Length of the received message
+	struct sockaddr_in addr;	// Client address from which the message was received
+};

@@ -1,7 +1,15 @@
+/****************
+Assignment 7
+Sayan Sinha
+16CS10048
+****************/
+
 #include "rsocket.h"
+#define TIME_THRESH 2
+#define DROP_PROB 0.1
 
 
-struct msg
+struct msg // Data type for each message
 {
 	time_t time;
 	short counter;
@@ -12,14 +20,14 @@ struct msg
 	socklen_t addrlen;
 };
 
-struct recv_buf
+struct recv_buf // Content of each buffer
 {
 	char buf[100];
 	int len;
 	struct sockaddr_in addr;
 };
 
-struct recv_msg
+struct recv_msg // Received message table content
 {
 	short counter;
 	struct sockaddr_in addr;
@@ -29,10 +37,8 @@ typedef struct msg msg;
 typedef struct recv_msg recv_msg;
 typedef struct recv_buf recv_buf;
 
-#define TIME_THRESH 2
-#define DROP_PROB 0.1
 
-msg* unack_msg_table;
+msg* unack_msg_table;	// Unacknowledged message table
 recv_msg* recv_msg_table;
 recv_buf* recv_buffer;	 // need to store port
 int recv_buffer_count;
@@ -48,18 +54,16 @@ pthread_mutex_t lock_uack_count, lock_recv_count, lock_recv_buffer_count, lock_p
 
 int prob_sent_counter;
 
-int dropMessage(float p)
+int dropMessage(float p)	// Message dropping
 {
 	int num = rand();
 	num = (int)num % 1000;
-	// printf("num: %d\n", num);
-	// printf("Prob val %f\n", num/1000.0);
-	if (num/1000.0 < p)
+	if (num/1000.0 <= p)
 		return 1;
 	return 0;
 }
 
-void HandleRetransmit(int sockfd)
+void HandleRetransmit(int sockfd)	// Handles retransmission
 {
 	// printf("Will retransmit\n");
 	if (uack_count)
@@ -90,7 +94,7 @@ void HandleRetransmit(int sockfd)
 	}
 }
 
-void sendAck(int sockfd, short header, int i)
+void sendAck(int sockfd, short header, int i)	// Sends acknowledgement
 {
 	char buf_temp[2* sizeof(short)];
 	short prepend = 1234;
@@ -99,7 +103,7 @@ void sendAck(int sockfd, short header, int i)
 	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, (struct sockaddr *) &recv_msg_table[i].addr, sizeof(recv_msg_table[i].addr));
 }
 
-void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr_in addr)
+void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr_in addr) // Writes to receive buffer on messsage receipt
 {
 	int i;
 	int found = 0;
@@ -129,7 +133,7 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 	sendAck(sockfd, header, i);
 }
 
-void HandleACKMsgRecv(char* buf)
+void HandleACKMsgRecv(char* buf)	// Mark sent message as acknoeledged
 {
 	short counter_here, found = 0;
 	memcpy(&counter_here, buf + sizeof(short), sizeof(short));
@@ -154,7 +158,7 @@ void HandleACKMsgRecv(char* buf)
 	}
 }
 
-void HandleReceive(int sockfd)
+void HandleReceive(int sockfd)	// Handle message receipt
 {
 	struct sockaddr_in cliaddr;
 	memset(&cliaddr, 0, sizeof(cliaddr));
@@ -178,7 +182,7 @@ void HandleReceive(int sockfd)
 		HandleAppMsgRecv(sockfd, header, bufn, n, cliaddr);
 }
 
-void* threadX(void* vargp) 
+void* threadX(void* vargp) 	// Keeps looking for incoming data
 {
 	int sockfd = *((int *) vargp); 
 	fd_set sock;
@@ -198,8 +202,13 @@ void* threadX(void* vargp)
 	}
 } 
 
-int r_socket(int domain, int type, int protocol)
+int r_socket(int domain, int type, int protocol)	// Creates a socket of type MRP
 {
+	if (type != SOCK_MRP)
+	{
+		fprintf(stderr, "Invalid socket type\n");
+		return -1;
+	}
 	srand(time(NULL));
 	int sockfd = socket(domain, SOCK_DGRAM, protocol);
 	if (sockfd < 0)
@@ -222,7 +231,7 @@ int r_socket(int domain, int type, int protocol)
 	return sockfd;
 }
 
-int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct sockaddr* dest_addr, socklen_t addrlen)
+int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct sockaddr* dest_addr, socklen_t addrlen)  // Sends data via MRP socket
 {
 	int counter = 0;
 	int buf_size = 100;
@@ -258,7 +267,7 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 	return 0;
 }
 
-int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen)
+int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen) // Receive data from MRP socket
 {
 	int len = (int)len_here;
 	if (flag != MSG_PEEK && flag != 0)
@@ -282,12 +291,12 @@ int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  s
 	return len_to_ret;
 }
 
-int r_bind(int sockfd, const struct sockaddr* servaddr,  socklen_t addrlen)
+int r_bind(int sockfd, const struct sockaddr* servaddr,  socklen_t addrlen) // binds MRP to an IP and port
 {
 	return bind(sockfd, servaddr,  addrlen);
 }
 
-int r_close(int sockfd)
+int r_close(int sockfd)		// Close socket
 {
 	while(uack_count);
 	free(unack_msg_table);
@@ -295,9 +304,9 @@ int r_close(int sockfd)
 	free(recv_buffer);
 	pthread_cancel(X);
 	close(sockfd);
-	char buf_test[] = "A quick brown fox jumps over the lazy dog.";
+	// char buf_test[] = "A quick brown fox jumps over the lazy dog.";
 	// printf("prob_sent_counter %d\n", prob_sent_counter);
 	// printf("len of str %d\n", strlen(buf_test));
-	printf("\nAvg sends: %f\n", (float)prob_sent_counter / strlen(buf_test));
+	printf("\nTotal no of sends: %d\n", prob_sent_counter);
 	return 0;
 }
