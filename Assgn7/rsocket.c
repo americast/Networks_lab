@@ -51,7 +51,7 @@ char* buf_total;
 short send_count;
 pthread_t X; 
 pthread_mutex_t lock_uack_count, lock_recv_buffer_count, lock_prob_sent_counter; 
-
+pthread_mutex_t lock_uack_msg_table, lock_recv_buffer;
 int prob_sent_counter;
 
 int dropMessage(float p)	// Message dropping
@@ -118,9 +118,11 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 	}
 	if (found == 0)
 	{
+		pthread_mutex_lock(&lock_recv_buffer);
 		memcpy(recv_buffer[recv_buffer_count].buf, buf + sizeof(short), n - sizeof(short));
 		recv_buffer[recv_buffer_count].len = n - sizeof(short);
 		recv_buffer[recv_buffer_count].addr = addr;
+		pthread_mutex_unlock(&lock_recv_buffer);
 		pthread_mutex_lock(&lock_recv_buffer_count);
 		recv_buffer_count++;
 		pthread_mutex_unlock(&lock_recv_buffer_count);
@@ -148,8 +150,10 @@ void HandleACKMsgRecv(char* buf)	// Mark sent message as acknoeledged
 	if (found)
 	{
 		int j;
+		pthread_mutex_lock(&lock_uack_msg_table);
 		for (j = i; j < uack_count - 1; j++)
 			unack_msg_table[j] = unack_msg_table[j + 1];
+		pthread_mutex_unlock(&lock_uack_msg_table);
 		pthread_mutex_lock(&lock_uack_count);
 		uack_count--;
 		pthread_mutex_unlock(&lock_uack_count);
@@ -244,6 +248,7 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 			amt = len;
 		memcpy(buf_total, &send_count, sizeof(short));
 		memcpy(buf_total + sizeof(short), (char *) (buf_here + (counter * buf_size)), amt);
+		pthread_mutex_lock(&lock_uack_msg_table);
 		unack_msg_table[uack_count].time = time(NULL);
 		unack_msg_table[uack_count].counter = send_count;
 		memcpy(unack_msg_table[uack_count].buf, buf_here + (counter * buf_size), amt);
@@ -251,6 +256,7 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 		unack_msg_table[uack_count].flags = flag;
 		unack_msg_table[uack_count].dest_addr = dest_addr;
 		unack_msg_table[uack_count].addrlen = addrlen;
+		pthread_mutex_unlock(&lock_uack_msg_table);
 		pthread_mutex_lock(&lock_uack_count);
 		uack_count++;
 		pthread_mutex_unlock(&lock_uack_count);
@@ -263,7 +269,11 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 		len -= buf_size;
 		
 		if (stat < 0)
+		{
+			uack_count--;
+			send_count--;
 			return stat;
+		}
 		counter+=1;
 	}
 	return 0;
@@ -286,8 +296,10 @@ int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  s
 	int j;
 	if (flag != MSG_PEEK)
 	{
+		pthread_mutex_lock(&lock_recv_buffer);
 		for (j = 0; j < recv_buffer_count - 1; j++)
 			recv_buffer[j] = recv_buffer[j + 1];
+		pthread_mutex_unlock(&lock_recv_buffer);
 		pthread_mutex_lock(&lock_recv_buffer_count);
 		recv_buffer_count--;
 		pthread_mutex_unlock(&lock_recv_buffer_count);

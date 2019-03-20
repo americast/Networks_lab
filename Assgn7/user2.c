@@ -33,7 +33,7 @@ int main() {
       
     int n;
     socklen_t len;
-    char buf[] = "A quick brown fox jumps over the lazy dog.";
+    char buf[] = "A";
     // char *hello = "CLIENT:HELLO"; 
     int i;
     for (i = 0; i < strlen(buf); i++)
@@ -49,7 +49,9 @@ int main() {
         }
         // printf("%s message sent from client\n", buf_here); 
     }
-           
+    r_recvfrom(sockfd, buf, 2, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+    printf("Just now received: %s\n", buf);
     r_close(sockfd); 
+
     return 0; 
 } 

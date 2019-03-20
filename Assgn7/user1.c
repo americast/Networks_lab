@@ -26,14 +26,19 @@ int main()
     }
     printf("Binding complete\n");
     printf("Server running...\n");
-    while(1)
-    {
-    	char bufn[100];
-    	int clilen = sizeof(cliaddr);
-    	if (r_recvfrom(sockfd, bufn, 100, 0, ( struct sockaddr *) &cliaddr, &clilen) < 0)
-    	{
-    		printf("Receive error\n");
-    	}
-    	printf("Received: %s\n", bufn);
-    }
+    // while(1)
+    // {
+	char bufn[100];
+	int clilen = sizeof(cliaddr);
+	if (r_recvfrom(sockfd, bufn, 100, 0, ( struct sockaddr *) &cliaddr, &clilen) < 0)
+	{
+		printf("Receive error\n");
+	}
+	printf("Received: %s\n", bufn);
+    // }
+
+    // int clilen = sizeof(cliaddr);
+    char bufn2[] = "B";
+    r_sendto(sockfd, bufn2, strlen(bufn2) + 1, 0, ( struct sockaddr *) &cliaddr, sizeof(cliaddr));
+    r_close(sockfd);
 }
