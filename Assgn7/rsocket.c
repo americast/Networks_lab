@@ -5,8 +5,6 @@ Sayan Sinha
 ****************/
 
 #include "rsocket.h"
-#define TIME_THRESH 2
-#define DROP_PROB 0.1
 
 
 struct msg // Data type for each message
@@ -45,7 +43,7 @@ int recv_buffer_count;
 int recv_size;
 int uack_count;
 int recv_count;
-// int sockfd;
+int sockfd_here;
 char* buf_total;
 // int count;
 short send_count;
@@ -230,6 +228,7 @@ int r_socket(int domain, int type, int protocol)	// Creates a socket of type MRP
 	prob_sent_counter = 0;
 	usleep(10000);
 	// count++;
+	sockfd_here = sockfd;
 	return sockfd;
 }
 
@@ -281,6 +280,8 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 
 int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen) // Receive data from MRP socket
 {
+	if (sockfd != sockfd_here)
+		return -1;
 	int len = (int)len_here;
 	if (flag != MSG_PEEK && flag != 0)
 		return -1;
