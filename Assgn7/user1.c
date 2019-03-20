@@ -30,7 +30,10 @@ int main()
     {
     	char bufn[100];
     	int clilen = sizeof(cliaddr);
-    	r_recvfrom(sockfd, bufn, 100, ( struct sockaddr *) &cliaddr, &clilen);
+    	if (r_recvfrom(sockfd, bufn, 100, 0, ( struct sockaddr *) &cliaddr, &clilen) < 0)
+    	{
+    		printf("Receive error\n");
+    	}
     	printf("Received: %s\n", bufn);
     }
 }

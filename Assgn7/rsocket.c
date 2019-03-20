@@ -1,5 +1,64 @@
 #include "rsocket.h"
 
+
+struct msg
+{
+	time_t time;
+	short counter;
+	char buf[100];
+	int flags;
+	size_t len;
+	struct sockaddr* dest_addr;
+	socklen_t addrlen;
+};
+
+struct recv_buf
+{
+	char buf[100];
+	int len;
+	struct sockaddr_in addr;
+};
+
+struct recv_msg
+{
+	short counter;
+	struct sockaddr_in addr;
+};
+
+typedef struct msg msg;
+typedef struct recv_msg recv_msg;
+typedef struct recv_buf recv_buf;
+
+#define TIME_THRESH 2
+#define DROP_PROB 0.1
+
+msg* unack_msg_table;
+recv_msg* recv_msg_table;
+recv_buf* recv_buffer;	 // need to store port
+int recv_buffer_count;
+int recv_size;
+int uack_count;
+int recv_count;
+// int sockfd;
+char* buf_total;
+// int count;
+short send_count;
+pthread_t X; 
+pthread_mutex_t lock_uack_count, lock_recv_count, lock_recv_buffer_count, lock_prob_sent_counter; 
+
+int prob_sent_counter;
+
+int dropMessage(float p)
+{
+	int num = rand();
+	num = (int)num % 1000;
+	// printf("num: %d\n", num);
+	// printf("Prob val %f\n", num/1000.0);
+	if (num/1000.0 < p)
+		return 1;
+	return 0;
+}
+
 void HandleRetransmit(int sockfd)
 {
 	// printf("Will retransmit\n");
@@ -20,7 +79,7 @@ void HandleRetransmit(int sockfd)
 				char buf_total_here[sizeof(short) + 100];
 				memcpy(buf_total_here, &(here.counter), sizeof(short));
 				memcpy(buf_total_here + sizeof(short), here.buf, here.len);
-				sendto(sockfd, buf_total_here, sizeof(short) + here.len, 0, here.dest_addr, here.addrlen);
+				sendto(sockfd, buf_total_here, sizeof(short) + here.len, here.flags, here.dest_addr, here.addrlen);
 				pthread_mutex_lock(&lock_prob_sent_counter);
 				prob_sent_counter++;
 				pthread_mutex_unlock(&lock_prob_sent_counter);
@@ -110,7 +169,8 @@ void HandleReceive(int sockfd)
 	// printf("Received internal: %s\nn is %d\n", bufn+sizeof(short), n);
 	short header;
 	memcpy(&header, bufn, sizeof(short));
-	if (dropMessage(DROP_PROB))
+	float prob = DROP_PROB;
+	if (dropMessage(prob))
 		return;
 	if (header > 100) // Ack
 		HandleACKMsgRecv(bufn);	
@@ -162,7 +222,7 @@ int r_socket(int domain, int type, int protocol)
 	return sockfd;
 }
 
-int r_sendto(int sockfd, const void* buf_here, size_t len, const struct sockaddr* dest_addr, socklen_t addrlen)
+int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct sockaddr* dest_addr, socklen_t addrlen)
 {
 	int counter = 0;
 	int buf_size = 100;
@@ -181,11 +241,13 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, const struct sockaddr
 		unack_msg_table[uack_count].counter = send_count;
 		memcpy(unack_msg_table[uack_count].buf, buf_here + (counter * buf_size), amt);
 		unack_msg_table[uack_count].len = amt;
+		unack_msg_table[uack_count].flags = flag;
 		unack_msg_table[uack_count].dest_addr = dest_addr;
 		unack_msg_table[uack_count].addrlen = addrlen;
 		uack_count++;
 		send_count++;
-		stat = sendto(sockfd, buf_total, sizeof(short) + amt, 0, dest_addr, addrlen);
+		stat = sendto(sockfd, buf_total, sizeof(short) + amt, flag, dest_addr, addrlen);
+		printf("Transmitted %s\n", buf_total + sizeof(short));
 		prob_sent_counter++;
 		len -= buf_size;
 		
@@ -193,11 +255,14 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, const struct sockaddr
 			return stat;
 		counter+=1;
 	}
-	return 1;
+	return 0;
 }
 
-int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, socklen_t addrlen)
+int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen)
 {
+	int len = (int)len_here;
+	if (flag != MSG_PEEK && flag != 0)
+		return -1;
 	while (recv_buffer_count == 0)
 		sleep(1);
 	int len_to_ret;
@@ -208,9 +273,12 @@ int r_recvfrom(int sockfd, char *buf, int len, const struct  sockaddr * addr, so
 	memcpy(buf, recv_buffer[0].buf, len_to_ret);
 	memcpy(addr, (struct sockaddr *) &recv_buffer[0].addr, sizeof(recv_buffer[0].addr));
 	int j;
-	for (j = 0; j < recv_buffer_count - 1; j++)
-		recv_buffer[j] = recv_buffer[j + 1];
-	recv_buffer_count--;
+	if (flag != MSG_PEEK)
+	{
+		for (j = 0; j < recv_buffer_count - 1; j++)
+			recv_buffer[j] = recv_buffer[j + 1];
+		recv_buffer_count--;
+	}
 	return len_to_ret;
 }
 
@@ -231,15 +299,5 @@ int r_close(int sockfd)
 	// printf("prob_sent_counter %d\n", prob_sent_counter);
 	// printf("len of str %d\n", strlen(buf_test));
 	printf("\nAvg sends: %f\n", (float)prob_sent_counter / strlen(buf_test));
-}
-
-int dropMessage(float p)
-{
-	int num = rand();
-	num = (int)num % 1000;
-	// printf("num: %d\n", num);
-	// printf("Prob val %f\n", num/1000.0);
-	if (num/1000.0 < p)
-		return 1;
 	return 0;
 }

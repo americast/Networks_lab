@@ -5,7 +5,7 @@ int main() {
     struct sockaddr_in servaddr, ownconfig; 
   
     // Creating socket file descriptor 
-    sockfd = r_socket(AF_INET, SOCK_DGRAM, 0);
+    sockfd = r_socket(AF_INET, SOCK_MRP, 0);
     if ( sockfd < 0 ) { 
         perror("socket creation failed"); 
         exit(EXIT_FAILURE); 
@@ -41,13 +41,13 @@ int main() {
         char buf_here[2];
         sprintf(buf_here, "%c", buf[i]);
         buf_here[1] = '\0';
-        if (r_sendto(sockfd, (const char *)buf_here, 2, 
+        if (r_sendto(sockfd, (const char *)buf_here, 2, 0,
                 (const struct sockaddr *) &servaddr, sizeof(servaddr)) < 0)
         {
             perror("Error in sending");
             exit(EXIT_FAILURE);
         }
-        printf("%s message sent from client\n", buf_here); 
+        // printf("%s message sent from client\n", buf_here); 
     }
            
     r_close(sockfd); 
