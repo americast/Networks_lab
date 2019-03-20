@@ -50,7 +50,7 @@ char* buf_total;
 // int count;
 short send_count;
 pthread_t X; 
-pthread_mutex_t lock_uack_count, lock_recv_count, lock_recv_buffer_count, lock_prob_sent_counter; 
+pthread_mutex_t lock_uack_count, lock_recv_buffer_count, lock_prob_sent_counter; 
 
 int prob_sent_counter;
 
@@ -126,9 +126,7 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 		pthread_mutex_unlock(&lock_recv_buffer_count);
 		recv_msg_table[recv_count].counter = header;
 		recv_msg_table[recv_count].addr = addr;
-		pthread_mutex_lock(&lock_recv_count);
 		recv_count++;
-		pthread_mutex_unlock(&lock_recv_count);
 	}
 	sendAck(sockfd, header, i);
 }
@@ -253,11 +251,15 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 		unack_msg_table[uack_count].flags = flag;
 		unack_msg_table[uack_count].dest_addr = dest_addr;
 		unack_msg_table[uack_count].addrlen = addrlen;
+		pthread_mutex_lock(&lock_uack_count);
 		uack_count++;
+		pthread_mutex_unlock(&lock_uack_count);
 		send_count++;
 		stat = sendto(sockfd, buf_total, sizeof(short) + amt, flag, dest_addr, addrlen);
 		printf("Transmitted %s\n", buf_total + sizeof(short));
+		pthread_mutex_lock(&lock_prob_sent_counter);
 		prob_sent_counter++;
+		pthread_mutex_unlock(&lock_prob_sent_counter);
 		len -= buf_size;
 		
 		if (stat < 0)
@@ -286,7 +288,9 @@ int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  s
 	{
 		for (j = 0; j < recv_buffer_count - 1; j++)
 			recv_buffer[j] = recv_buffer[j + 1];
+		pthread_mutex_lock(&lock_recv_buffer_count);
 		recv_buffer_count--;
+		pthread_mutex_unlock(&lock_recv_buffer_count);
 	}
 	return len_to_ret;
 }
