@@ -229,6 +229,31 @@ int r_socket(int domain, int type, int protocol)	// Creates a socket of type MRP
 	usleep(10000);
 	// count++;
 	sockfd_here = sockfd;
+	if(pthread_mutex_init(&lock_uack_count, NULL)!=0)
+	{
+		perror("Error in mutex init");
+		exit(EXIT_FAILURE);
+	}
+	if(pthread_mutex_init(&lock_recv_buffer, NULL)!=0)
+	{
+		perror("Error in mutex init");
+		exit(EXIT_FAILURE);
+	}
+	if(pthread_mutex_init(&lock_uack_msg_table, NULL)!=0)
+	{
+		perror("Error in mutex init");
+		exit(EXIT_FAILURE);
+	}
+	if(pthread_mutex_init(&lock_prob_sent_counter, NULL)!=0)
+	{
+		perror("Error in mutex init");
+		exit(EXIT_FAILURE);
+	}
+	if(pthread_mutex_init(&lock_recv_buffer_count, NULL)!=0)
+	{
+		perror("Error in mutex init");
+		exit(EXIT_FAILURE);
+	}
 	return sockfd;
 }
 
@@ -322,6 +347,11 @@ int r_close(int sockfd)		// Close socket
 	free(recv_buffer);
 	pthread_cancel(X);		// Close the thread
 	close(sockfd);
+	pthread_mutex_destroy(&lock_recv_buffer);
+	pthread_mutex_destroy(&lock_uack_count);
+	pthread_mutex_destroy(&lock_recv_buffer_count);
+	pthread_mutex_destroy(&lock_prob_sent_counter);
+	pthread_mutex_destroy(&lock_uack_msg_table);
 	// char buf_test[] = "A quick brown fox jumps over the lazy dog.";
 	// printf("prob_sent_counter %d\n", prob_sent_counter);
 	// printf("len of str %d\n", strlen(buf_test));
