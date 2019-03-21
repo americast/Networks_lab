@@ -31,26 +31,25 @@ struct recv_msg // Received message table content
 	struct sockaddr_in addr;
 };
 
-typedef struct msg msg;
+typedef struct msg msg;				
 typedef struct recv_msg recv_msg;
 typedef struct recv_buf recv_buf;
 
 
-msg* unack_msg_table;	// Unacknowledged message table
-recv_msg* recv_msg_table;
-recv_buf* recv_buffer;	 // need to store port
-int recv_buffer_count;
-int recv_size;
-int uack_count;
-int recv_count;
-int sockfd_here;
-char* buf_total;
+msg* unack_msg_table;		// Unacknowledged message table
+recv_msg* recv_msg_table;	// Received message id table
+recv_buf* recv_buffer;		// Reveive buffer
+int recv_buffer_count;		// No of items in the receive buffer
+int uack_count;				// No of unacknowledged sent items
+int recv_count;				// Total no of items received
+int sockfd_here;			// Copy of the initialised sockfd for reference
+char* buf_total;			// Buffer to be filled before sending
 // int count;
-short send_count;
-pthread_t X; 
+short send_count;			// The counter which acts as a header
+pthread_t X; 				// The thread X which takes care of receive
 pthread_mutex_t lock_uack_count, lock_recv_buffer_count, lock_prob_sent_counter; 
-pthread_mutex_t lock_uack_msg_table, lock_recv_buffer;
-int prob_sent_counter;
+pthread_mutex_t lock_uack_msg_table, lock_recv_buffer; // Mutex lockers
+int prob_sent_counter;		// Counts all sending attempts
 
 int dropMessage(float p)	// Message dropping
 {
@@ -220,8 +219,7 @@ int r_socket(int domain, int type, int protocol)	// Creates a socket of type MRP
 	recv_msg_table = (recv_msg *) malloc(100 * sizeof(recv_msg));
 	recv_buffer = (recv_buf *) malloc(100 * sizeof(recv_buffer));
 	buf_total = (char *) malloc(sizeof(short) + (100 * sizeof(char)));
-	recv_buffer_count = 0;
-	recv_size = 0;
+	recv_buffer_count = 0;	// Initialise counters to zero
 	uack_count = 0;
 	recv_count = 0;
 	send_count = 0;
@@ -245,8 +243,8 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 			amt = buf_size;
 		else
 			amt = len;
-		memcpy(buf_total, &send_count, sizeof(short));
-		memcpy(buf_total + sizeof(short), (char *) (buf_here + (counter * buf_size)), amt);
+		memcpy(buf_total, &send_count, sizeof(short));	// Add header
+		memcpy(buf_total + sizeof(short), (char *) (buf_here + (counter * buf_size)), amt); // Add content
 		pthread_mutex_lock(&lock_uack_msg_table);
 		unack_msg_table[uack_count].time = time(NULL);
 		unack_msg_table[uack_count].counter = send_count;
@@ -292,8 +290,8 @@ int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  s
 		len_to_ret = recv_buffer[0].len;
 	else
 		len_to_ret = len;
-	memcpy(buf, recv_buffer[0].buf, len_to_ret);
-	memcpy(addr, (struct sockaddr *) &recv_buffer[0].addr, sizeof(recv_buffer[0].addr));
+	memcpy(buf, recv_buffer[0].buf, len_to_ret);	// Retrieve content
+	memcpy(addr, (struct sockaddr *) &recv_buffer[0].addr, sizeof(recv_buffer[0].addr)); // Retrieve address
 	int j;
 	if (flag != MSG_PEEK)
 	{
@@ -316,10 +314,10 @@ int r_bind(int sockfd, const struct sockaddr* servaddr,  socklen_t addrlen) // b
 int r_close(int sockfd)		// Close socket
 {
 	while(uack_count);
-	free(unack_msg_table);
+	free(unack_msg_table);	// Free dynamically allocated memory
 	free(recv_msg_table);
 	free(recv_buffer);
-	pthread_cancel(X);
+	pthread_cancel(X);		// Close the thread
 	close(sockfd);
 	// char buf_test[] = "A quick brown fox jumps over the lazy dog.";
 	// printf("prob_sent_counter %d\n", prob_sent_counter);

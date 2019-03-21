@@ -24,7 +24,7 @@ Prob:   Actual, Expected
 0.50: 4.123809, 4.000000
 
 The expected value of average no of sends per character is given by (1 / ((1 - p)^2)). A python script was used to compute the average value of 5 runs for each probability value. It is evident that the obtained value is pretty close to the expected value.
- Performance Statistics and Learning  based Detection of Exploitative Speculative Attacks
+
 Syntaxes:
 
 1) int r_socket(int domain, int type, int protocol)
@@ -80,3 +80,5 @@ struct recv_buf
 	int len;			// Length of the received message
 	struct sockaddr_in addr;	// Client address from which the message was received
 };
+
+Every message contains a header equivalent to the length of short. It contains the counter. Also, the acknowledgements have a counter value greater than 100, because 100 is the maximum permissible counter value here. In the acks, the header of the message to which the ack belongs follows the counter.
