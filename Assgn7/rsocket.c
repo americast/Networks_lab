@@ -23,6 +23,7 @@ struct recv_buf // Content of each buffer
 	char buf[100];
 	int len;
 	struct sockaddr_in addr;
+	socklen_t clilen;
 };
 
 struct recv_msg // Received message table content
@@ -100,7 +101,7 @@ void sendAck(int sockfd, short header, int i)	// Sends acknowledgement
 	sendto(sockfd, buf_temp, 2 * sizeof(short), 0, (struct sockaddr *) &recv_msg_table[i].addr, sizeof(recv_msg_table[i].addr));
 }
 
-void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr_in addr) // Writes to receive buffer on messsage receipt
+void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockaddr_in addr, socklen_t clen) // Writes to receive buffer on messsage receipt
 {
 	int i;
 	int found = 0;
@@ -119,6 +120,7 @@ void HandleAppMsgRecv(int sockfd, short header, char* buf, int n, struct sockadd
 		memcpy(recv_buffer[recv_buffer_count].buf, buf + sizeof(short), n - sizeof(short));
 		recv_buffer[recv_buffer_count].len = n - sizeof(short);
 		recv_buffer[recv_buffer_count].addr = addr;
+		recv_buffer[recv_buffer_count].clilen = clen;
 		pthread_mutex_unlock(&lock_recv_buffer);
 		pthread_mutex_lock(&lock_recv_buffer_count);
 		recv_buffer_count++;
@@ -178,7 +180,7 @@ void HandleReceive(int sockfd)	// Handle message receipt
 	if (header > 100) // Ack
 		HandleACKMsgRecv(bufn);	
 	else
-		HandleAppMsgRecv(sockfd, header, bufn, n, cliaddr);
+		HandleAppMsgRecv(sockfd, header, bufn, n, cliaddr, clilen);
 }
 
 void* threadX(void* vargp) 	// Keeps looking for incoming data
@@ -276,7 +278,7 @@ int r_sendto(int sockfd, const void* buf_here, size_t len, int flag,const struct
 	return 0;
 }
 
-int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen) // Receive data from MRP socket
+int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t* addrlen) // Receive data from MRP socket
 {
 	if (sockfd != sockfd_here)
 		return -1;
@@ -292,6 +294,7 @@ int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  s
 		len_to_ret = len;
 	memcpy(buf, recv_buffer[0].buf, len_to_ret);	// Retrieve content
 	memcpy(addr, (struct sockaddr *) &recv_buffer[0].addr, sizeof(recv_buffer[0].addr)); // Retrieve address
+	memcpy(addrlen, &recv_buffer[0].clilen, sizeof(socklen_t));
 	int j;
 	if (flag != MSG_PEEK)
 	{

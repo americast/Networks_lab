@@ -49,7 +49,8 @@ int main() {
         }
         // printf("%s message sent from client\n", buf_here); 
     }
-    r_recvfrom(sockfd, buf, 2, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+    int clilen = sizeof(servaddr);
+    r_recvfrom(sockfd, buf, 2, 0, (const struct sockaddr *) &servaddr, &servaddr);
     printf("Just now received: %s\n", buf);
     r_close(sockfd); 
 

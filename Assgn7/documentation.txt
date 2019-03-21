@@ -35,7 +35,7 @@ Supported `type`: SOCK_MRP only
 
 All flags supported same as that in UDP
 
-3) int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t addrlen)
+3) int r_recvfrom(int sockfd, char *buf, size_t len_here, int flag, const struct  sockaddr * addr, socklen_t * addrlen)
 
 Supported `flag`: 0 for normal execution, MSG_PEEK for peeking at message without removing from buffer.
 

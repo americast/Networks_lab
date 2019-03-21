@@ -22,7 +22,7 @@ int r_socket(int, int, int);
 
 int r_sendto(int, const void*, size_t, int, const struct sockaddr*, socklen_t);
 
-int r_recvfrom(int, char*, size_t, int, const struct sockaddr *, socklen_t);
+int r_recvfrom(int, char*, size_t, int, const struct sockaddr *, socklen_t *);
 
 int r_bind(int, const struct sockaddr*, socklen_t);
 
