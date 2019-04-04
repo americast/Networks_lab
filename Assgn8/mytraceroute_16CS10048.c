@@ -1,36 +1,21 @@
 #include<stdio.h>
-
 #include<stdlib.h>
-
 #include <sys/socket.h>
-
 #include <arpa/inet.h>
-
 #include <netinet/in.h>
-
 #include <linux/ip.h> /* for ipv4 header */
-
 #include <linux/udp.h> /* for upd header */
-
 #include <unistd.h>
-
 #include <string.h>
-
 #include <signal.h>
-
 #include <sys/wait.h>
-
-
 #include <sys/types.h>
-#include <sys/socket.h> 
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <netdb.h>
 
 #define MSG_SIZE 2048
 # define LISTEN_PORT 8080
-// #define LISTEN_IP "127.0.0.1""
-# define LISTEN_IP "0.0.0.0"
+#define LISTEN_IP "127.0.0.1"
+// # define LISTEN_IP "0.0.0.0"
 int main(int argc, char *argv[]) {
     char domain[100];
     strcpy(domain, argv[1]);
@@ -49,11 +34,6 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < lh->h_length; i++)
     {
 
-        // printf("Here1\n");
-        // printf("Here[0]: %d\n", (int)lh->h_addr_list[i][0]);
-        // if (strlen(lh->h_addr_list[i]) == 0)
-        //  break;
-        // printf("Here2\n");
         if (lh->h_addr_list[i] == NULL)
             break;
         IPbuffer = inet_ntoa(*((struct in_addr*) 
@@ -64,10 +44,55 @@ int main(int argc, char *argv[]) {
         strcpy(ip, IPbuffer);
     }
 
+    int S1, S2;
+    struct sockaddr_in saddr_raw;
+    struct iphdr hdrip;
+    struct udphdr hdrudp;
+    int iphdrlen = sizeof(hdrip);
+    int udphdrlen = sizeof(hdrudp);
+
+    S1 = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
+    if (S1 < 0)
+    {
+        perror("Could not create socket S1");
+        exit(EXIT_FAILURE);
+    }
+
+    S2 = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+    if (S2 < 0)
+    {
+        perror("Could not create socket S2");
+        exit(EXIT_FAILURE);
+    }
+
+    saddr_raw.sin_family = AF_INET;
+    saddr_raw.sin_port = htons(LISTEN_PORT);
+    saddr_raw.sin_addr.s_addr = inet_addr(LISTEN_IP);
+    int saddr_raw_len = sizeof(saddr_raw);
+
+    if (bind(S1, (struct sockaddr * ) &saddr_raw, saddr_raw_len) < 0) {
+        perror("S1 bind error");
+        exit(EXIT_FAILURE);
+    }
+    if (bind(S2, (struct sockaddr * ) & saddr_raw, saddr_raw_len) < 0) {
+        perror("S2 bind error");
+        exit(EXIT_FAILURE);
+    }
+
+
+    if (setsockopt(S1, IPPROTO_IP, IP_HDRINCL, &(int){1}, sizeof(int)) < 0)
+    {
+            perror("Could not set socket options 1");
+            exit(EXIT_FAILURE);
+    }
+
+
+
+
     exit(0);
 
 
-
+    /*
     int rawfd, udpfd;
     struct sockaddr_in saddr_raw, saddr_udp;
     struct sockaddr_in raddr;
@@ -81,6 +106,8 @@ int main(int argc, char *argv[]) {
         struct udphdr hdrudp;
         int iphdrlen = sizeof(hdrip);
         int udphdrlen = sizeof(hdrudp);
+
+
 
         rawfd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
         if (rawfd < 0) {
@@ -149,4 +176,5 @@ int main(int argc, char *argv[]) {
         close(udpfd);
     }
     return 0;
+    */
 }
