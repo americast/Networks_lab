@@ -45,11 +45,11 @@ int main(int argc, char *argv[]) {
     }
 
     int S1, S2;
-    struct sockaddr_in saddr_raw;
-    struct iphdr hdrip;
-    struct udphdr hdrudp;
-    int iphdrlen = sizeof(hdrip);
-    int udphdrlen = sizeof(hdrudp);
+    struct sockaddr_in saddr_raw, daddr_raw;
+    struct iphdr *hdrip;
+    struct udphdr *hdrudp;
+    int iphdrlen = sizeof(struct iphdr);
+    int udphdrlen = sizeof(struct udphdr);
 
     S1 = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
     if (S1 < 0)
@@ -70,6 +70,12 @@ int main(int argc, char *argv[]) {
     saddr_raw.sin_addr.s_addr = inet_addr(LISTEN_IP);
     int saddr_raw_len = sizeof(saddr_raw);
 
+
+    daddr_raw.sin_family = AF_INET;
+    daddr_raw.sin_port = htons(32164);
+    daddr_raw.sin_addr.s_addr = inet_addr(ip);
+    int daddr_raw_len = sizeof(daddr_raw);
+
     if (bind(S1, (struct sockaddr * ) &saddr_raw, saddr_raw_len) < 0) {
         perror("S1 bind error");
         exit(EXIT_FAILURE);
@@ -86,13 +92,44 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
     }
 
+    char buf[100];
+    memset(buf, 0, 100);
 
+    hdrip = ((struct iphdr * ) buf);
+    hdrudp = ((struct udphdr * )(buf + iphdrlen));
+    
+    hdrip->ihl = 5;
+    hdrip->version = 4;
+    hdrip->ttl = 1;
+    hdrip->protocol = 17;
+    hdrip->id = htonl(0);
+    hdrip->check = 0;
+    hdrip->tos = 0;
+    hdrip->frag_off = 0;
+    hdrip->tot_len = htons(iphdrlen + udphdrlen + 52);
+    hdrip->saddr = saddr_raw.sin_addr.s_addr;
+    hdrip->daddr = daddr_raw.sin_addr.s_addr;
 
+    hdrudp->source = saddr_raw.sin_port;
+    hdrudp->dest = daddr_raw.sin_port;
+    hdrudp->len = htons(udphdrlen + 52);
 
+    printf("buf: %s\n", buf);
+    int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
+    if (s < 0)
+    {
+        perror("Error in sending");
+        exit(EXIT_FAILURE);
+    }
+
+    close(S1);
+    close(S2);
+
+    /*
     exit(0);
 
 
-    /*
+    
     int rawfd, udpfd;
     struct sockaddr_in saddr_raw, saddr_udp;
     struct sockaddr_in raddr;
@@ -122,6 +159,7 @@ int main(int argc, char *argv[]) {
             perror("raw bind");
             exit(__LINE__);
         }
+
         while (1) {
             raddr_len = sizeof(raddr);
             msglen = recvfrom(rawfd, msg, MSG_SIZE, 0, (struct sockaddr * ) &
@@ -177,4 +215,5 @@ int main(int argc, char *argv[]) {
     }
     return 0;
     */
+    
 }
