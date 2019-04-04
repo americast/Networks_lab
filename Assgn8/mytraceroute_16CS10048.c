@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <linux/ip.h> /* for ipv4 header */
 #include <linux/udp.h> /* for upd header */
+#include <linux/icmp.h> 
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
@@ -117,6 +118,7 @@ int main(int argc, char *argv[]) {
     hdrudp->source = saddr_raw.sin_port;
     hdrudp->dest = daddr_raw.sin_port;
     hdrudp->len = htons(udphdrlen + 52);
+    // hdrudp->ui_sum = 0;
 
     // printf("buf: %s\n", buf);
     int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
@@ -126,13 +128,62 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    char buf2[100];
+    char buf2[2048];
     int clilen = sizeof(raddr_raw);
-    int r = recvfrom(S2, buf2, 100, 0, (struct sockaddr *) &raddr_raw, &clilen);
-    if (r < 0)
+
+    fd_set sock;
+    struct timeval tv;
+    while(1)
     {
-        perror("Error in receive");
-        exit(EXIT_FAILURE);
+        tv.tv_sec = 1;
+        FD_ZERO(&sock);
+        FD_SET(S2, &sock);
+        int selected = select(S2 + 1, &sock, NULL, NULL, &tv);
+        if (FD_ISSET(S2, &sock))
+        {
+            memset(buf2, 0, 2048);
+            int r = recvfrom(S2, buf2, 2048, 0, (struct sockaddr *) &raddr_raw, &clilen);
+            if (r < 0)
+            {
+                perror("Error in receive");
+                exit(EXIT_FAILURE);
+            }
+            struct iphdr *hdrip_here;
+            struct icmphdr *hdricmp_here;
+            hdrip_here = ((struct iphdr * ) buf2);
+            if (hdrip_here->protocol == 1)
+            {
+                hdricmp_here = ((struct icmphdr * ) buf2 + sizeof(struct iphdr));
+                if (hdricmp_here->type == 3)
+                {
+                    if (hdrip_here->saddr == daddr_raw.sin_addr.s_addr)
+                    {
+                        printf("Done\n");
+                        exit(EXIT_SUCCESS);
+                    }
+                    else
+                    {
+                        printf("Received incorrect IP\n");
+                    }
+                }
+                else
+                {
+                    printf("Some other type\n");
+                    printf("%u\n",hdricmp_here->type);
+                    printf("IP is: %s\n", inet_ntoa( * ((struct in_addr * ) &hdrip_here->saddr)));
+                }
+
+            }
+            else
+            {
+                printf("Didn't reach yet perhaps\n");
+            }
+        }
+        else
+        {   
+            printf("Timeout\n");
+            continue;
+        }
     }
 
     close(S1);
