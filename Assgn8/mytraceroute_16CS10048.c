@@ -1,5 +1,5 @@
-#include<stdio.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <time.h>
 
 #define MSG_SIZE 2048
 # define LISTEN_PORT 8080
@@ -41,11 +42,12 @@ int main(int argc, char *argv[]) {
                                lh->h_addr_list[i])); 
         // printf("Here3\n");
 
-        printf("IP buffer %d: %s\n", i+1, (IPbuffer));
         strcpy(ip, IPbuffer);
     }
 
+    printf("Target IP address: %s\n\n",(ip));
     int S1, S2;
+    int exit_flag;
     struct sockaddr_in saddr_raw, daddr_raw, raddr_raw;
     memset(&saddr_raw, 0, sizeof(saddr_raw));
     memset(&daddr_raw, 0, sizeof(daddr_raw));
@@ -133,6 +135,7 @@ int main(int argc, char *argv[]) {
     {
         hdrip->ttl = ttl_here++;
         int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
+        clock_t before = clock();
         if (s < 0)
         {
             perror("Error in sending");
@@ -148,6 +151,7 @@ int main(int argc, char *argv[]) {
             memset(buf2, 0, 2048);
             int clilen = sizeof(raddr_raw);
             int r = recvfrom(S2, buf2, 2048, 0, (struct sockaddr *) &raddr_raw, &clilen);
+            clock_t difference = clock() - before;
             if (r < 0)
             {
                 perror("Error in receive");
@@ -159,24 +163,24 @@ int main(int argc, char *argv[]) {
             if (hdrip_here->protocol == 1)
             {
                 hdricmp_here = ((struct icmphdr * ) (buf2 + sizeof(struct iphdr)));
-                printf("IP is: %s\n", inet_ntoa( * ((struct in_addr * ) &hdrip_here->saddr)));
+                printf("Hop_Count(%d) \t %s \t %fs\n", ttl_here - 1, inet_ntoa( * ((struct in_addr * ) &hdrip_here->saddr)), difference * 1000.0 / CLOCKS_PER_SEC);
                 if (hdricmp_here->type == 3)
                 {
                     if (hdrip_here->saddr == daddr_raw.sin_addr.s_addr)
                     {
-                        printf("Done\n");
-                        exit(EXIT_SUCCESS);
+                        printf("\nSuccess\n");
+                        exit_flag = EXIT_SUCCESS;
                     }
                     else
                     {
-                        printf("Received incorrect IP\n");
-                        exit(EXIT_FAILURE);
+                        printf("\nReceived incorrect IP\n");
+                        exit_flag = EXIT_FAILURE;
                     }
+                    break;
                 }
-                else if (hdricmp_here->type == 11)
-                    printf("Received response from layer 3\n");
-                else
+                else if (hdricmp_here->type != 11)
                 {
+                    ttl_here--;
                     printf("Some other type\n");
                     printf("%d\n",hdricmp_here->type);
                 }
@@ -184,23 +188,32 @@ int main(int argc, char *argv[]) {
             }
             else
             {
+                ttl_here--;
                 printf("Didn't reach yet perhaps\n");
+                continue;
             }
         }
         else
         {   
-            printf("Timeout\n");
-            count++;
-            if (count<=3)
+            // printf("Timeout\n");
+            if (count<3)
+            {
+                count++;
                 ttl_here--;
+                continue;
+            }
             if (count>=3)
+            {
+                printf("Hop_Count(%d)           *             *\n", ttl_here - 1);
                 count = 0;
+            }
             continue;
         }
     }
 
     close(S1);
     close(S2);
+    exit(exit_flag);
 
     /*
     exit(0);
