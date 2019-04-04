@@ -14,8 +14,8 @@
 
 #define MSG_SIZE 2048
 # define LISTEN_PORT 8080
-#define LISTEN_IP "127.0.0.1"
-// # define LISTEN_IP "0.0.0.0"
+// #define LISTEN_IP "127.0.0.1"
+# define LISTEN_IP "0.0.0.0"
 int main(int argc, char *argv[]) {
     char domain[100];
     strcpy(domain, argv[1]);
@@ -45,7 +45,11 @@ int main(int argc, char *argv[]) {
     }
 
     int S1, S2;
-    struct sockaddr_in saddr_raw, daddr_raw;
+    struct sockaddr_in saddr_raw, daddr_raw, raddr_raw;
+    memset(&saddr_raw, 0, sizeof(saddr_raw));
+    memset(&daddr_raw, 0, sizeof(daddr_raw));
+    memset(&raddr_raw, 0, sizeof(raddr_raw));
+
     struct iphdr *hdrip;
     struct udphdr *hdrudp;
     int iphdrlen = sizeof(struct iphdr);
@@ -92,7 +96,7 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
     }
 
-    char buf[100];
+    char buf[1000];
     memset(buf, 0, 100);
 
     hdrip = ((struct iphdr * ) buf);
@@ -114,11 +118,20 @@ int main(int argc, char *argv[]) {
     hdrudp->dest = daddr_raw.sin_port;
     hdrudp->len = htons(udphdrlen + 52);
 
-    printf("buf: %s\n", buf);
+    // printf("buf: %s\n", buf);
     int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
     if (s < 0)
     {
         perror("Error in sending");
+        exit(EXIT_FAILURE);
+    }
+
+    char buf2[100];
+    int clilen = sizeof(raddr_raw);
+    int r = recvfrom(S2, buf2, 100, 0, (struct sockaddr *) &raddr_raw, &clilen);
+    if (r < 0)
+    {
+        perror("Error in receive");
         exit(EXIT_FAILURE);
     }
 
