@@ -1,3 +1,11 @@
+/***********
+
+Assignment 8
+Sayan Sinha
+16CS10048
+
+***********/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -73,8 +81,9 @@ int main(int argc, char *argv[]) {
     }
 
     saddr_raw.sin_family = AF_INET;
-    saddr_raw.sin_port = htons(LISTEN_PORT);
-    saddr_raw.sin_addr.s_addr = inet_addr(LISTEN_IP);
+    saddr_raw.sin_port = htons(LISTEN_PORT);           // set to any port because port is only
+                                                       // present in UDP layer, not IP layer
+    saddr_raw.sin_addr.s_addr = inet_addr(LISTEN_IP);  // set it to hardware localhost
     int saddr_raw_len = sizeof(saddr_raw);
 
 
@@ -100,7 +109,7 @@ int main(int argc, char *argv[]) {
     }
 
     char buf[1024];
-    memset(buf, 0, 1024);
+    memset(buf, 0, 1024);   // Set to zero
 
     hdrip = ((struct iphdr * ) buf);
     hdrudp = ((struct udphdr * )(buf + iphdrlen));
@@ -112,7 +121,7 @@ int main(int argc, char *argv[]) {
     hdrip->check = 0;
     hdrip->tos = 0;
     hdrip->frag_off = 0;
-    hdrip->tot_len = htons(iphdrlen + udphdrlen + 52);
+    hdrip->tot_len = htons(iphdrlen + udphdrlen + 52);      // Full length
     hdrip->saddr = saddr_raw.sin_addr.s_addr;
     hdrip->daddr = daddr_raw.sin_addr.s_addr;
 
@@ -148,7 +157,7 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(S2, &sock))
         {
             count = 0;
-            memset(buf2, 0, 2048);
+            memset(buf2, 0, 2048);  // Set recv buffer to zero
             int clilen = sizeof(raddr_raw);
             int r = recvfrom(S2, buf2, 2048, 0, (struct sockaddr *) &raddr_raw, &clilen);
             clock_t difference = clock() - before;
@@ -164,7 +173,7 @@ int main(int argc, char *argv[]) {
             {
                 hdricmp_here = ((struct icmphdr * ) (buf2 + sizeof(struct iphdr)));
                 printf("Hop_Count(%d) \t %s \t %fs\n", ttl_here - 1, inet_ntoa( * ((struct in_addr * ) &hdrip_here->saddr)), difference * 1000.0 / CLOCKS_PER_SEC);
-                if (hdricmp_here->type == 3)
+                if (hdricmp_here->type == 3)    // Reached destination
                 {
                     if (hdrip_here->saddr == daddr_raw.sin_addr.s_addr)
                     {
@@ -178,7 +187,7 @@ int main(int argc, char *argv[]) {
                     }
                     break;
                 }
-                else if (hdricmp_here->type != 11)
+                else if (hdricmp_here->type != 11)  // At some intermediate hop
                 {
                     ttl_here--;
                     printf("Some other type\n");
@@ -195,7 +204,7 @@ int main(int argc, char *argv[]) {
         }
         else
         {   
-            // printf("Timeout\n");
+            // Timeout
             if (count<3)
             {
                 count++;
@@ -213,97 +222,5 @@ int main(int argc, char *argv[]) {
 
     close(S1);
     close(S2);
-    exit(exit_flag);
-
-    /*
-    exit(0);
-
-
-    
-    int rawfd, udpfd;
-    struct sockaddr_in saddr_raw, saddr_udp;
-    struct sockaddr_in raddr;
-    int saddr_raw_len, saddr_udp_len;
-    int raddr_len;
-    char msg[MSG_SIZE];
-    int msglen;
-    pid_t pid = fork();
-    if (pid == 0) {
-        struct iphdr hdrip;
-        struct udphdr hdrudp;
-        int iphdrlen = sizeof(hdrip);
-        int udphdrlen = sizeof(hdrudp);
-
-
-
-        rawfd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-        if (rawfd < 0) {
-            perror("raw socket");
-            exit(__LINE__);
-        }
-        saddr_raw.sin_family = AF_INET;
-        saddr_raw.sin_port = htons(LISTEN_PORT);
-        saddr_raw.sin_addr.s_addr = INADDR_ANY; //inet_addr(LISTEN_IP);
-        saddr_raw_len = sizeof(saddr_raw);
-        if (bind(rawfd, (struct sockaddr * ) & saddr_raw, saddr_raw_len) < 0) {
-            perror("raw bind");
-            exit(__LINE__);
-        }
-
-        while (1) {
-            raddr_len = sizeof(raddr);
-            msglen = recvfrom(rawfd, msg, MSG_SIZE, 0, (struct sockaddr * ) &
-                raddr, & raddr_len);
-            if (msglen <= 0) //ignoring all the errors is not a good idea.
-                continue;
-            hdrip = * ((struct iphdr * ) msg);
-            hdrudp = * ((struct udphdr * )(msg + iphdrlen));
-            if (hdrudp.dest != saddr_raw.sin_port)
-                continue;
-            msg[msglen] = 0;
-
-            printf("RAW socket: ");
-            printf("hl: %d, version: %d, ttl: %d, protocol: %d",
-                hdrip.ihl, hdrip.version, hdrip.ttl, hdrip.protocol);
-            printf(", src: %s", inet_ntoa( * ((struct in_addr * ) &
-                hdrip.saddr)));
-            printf(", dst: %s", inet_ntoa( * ((struct in_addr * ) &
-                hdrip.daddr)));
-            printf("\nRAW socket: \tUdp sport: %d, dport: %d",
-                ntohs(hdrudp.source), ntohs(hdrudp.dest));
-            printf("\nRAW socket: \tfrom: %s:%d",
-                inet_ntoa(raddr.sin_addr), ntohs(raddr.sin_port));
-            printf("\nRaw Socket: \tUDP payload: %s",
-                msg + iphdrlen + udphdrlen);
-            printf("\n");
-        }
-        close(rawfd);
-    } else {
-        udpfd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (udpfd < 0) {
-            perror("udp socket");
-            exit(__LINE__);
-        }
-        saddr_udp.sin_family = AF_INET;
-        saddr_udp.sin_port = htons(LISTEN_PORT);
-        saddr_udp.sin_addr.s_addr = INADDR_ANY; //inet_addr(LISTEN_IP);
-        saddr_udp_len = sizeof(saddr_udp);
-        if (bind(udpfd, (struct sockaddr * ) & saddr_udp, saddr_udp_len) < 0) {
-            perror("raw bind");
-            exit(__LINE__);
-        }
-        while (1) {
-            raddr_len = sizeof(raddr);
-            msglen = recvfrom(udpfd, msg, MSG_SIZE, 0, (struct sockaddr * ) &
-                raddr, & raddr_len);
-            msg[msglen] = 0;
-            printf("UDP: recv len: %d, recvfrom: %s:%d\n", msglen,
-                inet_ntoa(raddr.sin_addr), ntohs(raddr.sin_port));
-            printf("UDP: payload: %s\n", msg);
-        }
-        close(udpfd);
-    }
-    return 0;
-    */
-    
+    exit(exit_flag);    
 }
