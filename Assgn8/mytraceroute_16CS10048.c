@@ -97,15 +97,14 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
     }
 
-    char buf[1000];
-    memset(buf, 0, 100);
+    char buf[1024];
+    memset(buf, 0, 1024);
 
     hdrip = ((struct iphdr * ) buf);
     hdrudp = ((struct udphdr * )(buf + iphdrlen));
     
     hdrip->ihl = 5;
     hdrip->version = 4;
-    hdrip->ttl = 1;
     hdrip->protocol = 17;
     hdrip->id = htonl(0);
     hdrip->check = 0;
@@ -118,30 +117,36 @@ int main(int argc, char *argv[]) {
     hdrudp->source = saddr_raw.sin_port;
     hdrudp->dest = daddr_raw.sin_port;
     hdrudp->len = htons(udphdrlen + 52);
+    hdrudp->check = 0;
     // hdrudp->ui_sum = 0;
 
     // printf("buf: %s\n", buf);
-    int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
-    if (s < 0)
-    {
-        perror("Error in sending");
-        exit(EXIT_FAILURE);
-    }
 
     char buf2[2048];
-    int clilen = sizeof(raddr_raw);
+    // int clilen = sizeof(raddr_raw);
 
     fd_set sock;
     struct timeval tv;
+    int ttl_here = 1;
+    int count = 0;
     while(1)
     {
+        hdrip->ttl = ttl_here++;
+        int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
+        if (s < 0)
+        {
+            perror("Error in sending");
+            exit(EXIT_FAILURE);
+        }
         tv.tv_sec = 1;
         FD_ZERO(&sock);
         FD_SET(S2, &sock);
         int selected = select(S2 + 1, &sock, NULL, NULL, &tv);
         if (FD_ISSET(S2, &sock))
         {
+            count = 0;
             memset(buf2, 0, 2048);
+            int clilen = sizeof(raddr_raw);
             int r = recvfrom(S2, buf2, 2048, 0, (struct sockaddr *) &raddr_raw, &clilen);
             if (r < 0)
             {
@@ -153,7 +158,8 @@ int main(int argc, char *argv[]) {
             hdrip_here = ((struct iphdr * ) buf2);
             if (hdrip_here->protocol == 1)
             {
-                hdricmp_here = ((struct icmphdr * ) buf2 + sizeof(struct iphdr));
+                hdricmp_here = ((struct icmphdr * ) (buf2 + sizeof(struct iphdr)));
+                printf("IP is: %s\n", inet_ntoa( * ((struct in_addr * ) &hdrip_here->saddr)));
                 if (hdricmp_here->type == 3)
                 {
                     if (hdrip_here->saddr == daddr_raw.sin_addr.s_addr)
@@ -164,13 +170,15 @@ int main(int argc, char *argv[]) {
                     else
                     {
                         printf("Received incorrect IP\n");
+                        exit(EXIT_FAILURE);
                     }
                 }
+                else if (hdricmp_here->type == 11)
+                    printf("Received response from layer 3\n");
                 else
                 {
                     printf("Some other type\n");
-                    printf("%u\n",hdricmp_here->type);
-                    printf("IP is: %s\n", inet_ntoa( * ((struct in_addr * ) &hdrip_here->saddr)));
+                    printf("%d\n",hdricmp_here->type);
                 }
 
             }
@@ -182,6 +190,11 @@ int main(int argc, char *argv[]) {
         else
         {   
             printf("Timeout\n");
+            count++;
+            if (count<=3)
+                ttl_here--;
+            if (count>=3)
+                count = 0;
             continue;
         }
     }
