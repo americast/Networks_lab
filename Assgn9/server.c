@@ -12,22 +12,22 @@
 
 #define MAXLINE 1024 
 
-int sockfd; 
-
-void my_recv(int signum)
-{
-	char buf[100];
-	struct sockaddr_in cliaddr;
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
-	int len = sizeof(cliaddr);
-	int n = recvfrom(sockfd, buf, 100, 0,  (struct sockaddr *) &cliaddr, &len);
-	printf("Received: %s\n", buf);
-	sendto(sockfd, buf, strlen(buf) + 1, 0, (const struct sockaddr *) &cliaddr, sizeof(cliaddr));
-	signal(SIGIO, my_recv);
-}
-
-int main() { 
+int main()
+{ 
+	
+	int sockfd; 
   
+	void my_recv(int signum)
+	{
+		char buf[100];
+		struct sockaddr_in cliaddr;
+	    memset(&cliaddr, 0, sizeof(cliaddr)); 
+		int len = sizeof(cliaddr);
+		int n = recvfrom(sockfd, buf, 100, 0,  (struct sockaddr *) &cliaddr, &len);
+		printf("Received: %s\n", buf);
+		sendto(sockfd, buf, strlen(buf) + 1, 0, (const struct sockaddr *) &cliaddr, sizeof(cliaddr));
+		signal(SIGIO, my_recv);
+	}
     // Creating socket file descriptor 
 	struct sockaddr_in servaddr; 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -59,10 +59,10 @@ int main() {
 		perror("fcntl F_SETOWN");
 		exit(1);
 	}
-	
+
     int open_flag = fcntl(sockfd, F_GETFL);
 
-	// third: allow receipt of asynchronous I/O signals
+    // make async I/O
 	if (fcntl(sockfd, F_SETFL, open_flag | FASYNC) <0 ){
 		perror("fcntl F_SETFL, FASYNC");
 		exit(1);
