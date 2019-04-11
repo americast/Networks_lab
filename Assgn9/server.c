@@ -1,4 +1,27 @@
-// The client program
+/**
+Non blocking is better because:
+
+1)  There might be race conditions as a signal might be caught while
+	some data is being manipulated.
+2)	In case the signal handling function is not pseudo-atomic, some 
+	receive call may occur while the previous one is being handled.
+	This might create loss of receives. It needs to be handled only
+	programmatically which might not be scalable.
+3)	If some syscall is taking place and a signal needs to be handled,
+	the decision taken might be arbitrary and it might not be known 
+	if the syscall needs to be restarted, though this might be over-
+	come by using appropriate sigaction.
+4)	SIGIO signal might be needed by various file descriptors. It is
+	insufficient to conclude the signal handler would be called only
+	for socket io.
+
+Assignment 9
+Sayan Sinha
+16CS10048
+Client
+
+**/
+
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h> 
