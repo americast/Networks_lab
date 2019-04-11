@@ -27,44 +27,22 @@ Sayan Sinha
 // #define LISTEN_IP "127.0.0.1"
 # define LISTEN_IP "0.0.0.0"
 
-// UDP checksum taken from https://gist.github.com/GreenRecycleBin/1273763
-uint16_t udp_checksum(struct udphdr *p_udp_header, size_t len, uint32_t src_addr, uint32_t dest_addr)
+// UDP checksum taken from https://gist.github.com/kttkyk/15eb82ebe052edc5d58a76a89bd15fca
+uint16_t checksum(uint8_t *data, unsigned int size)
 {
-  const uint16_t *buf = (const uint16_t*)p_udp_header;
-  uint16_t *ip_src = (void*)&src_addr, *ip_dst = (void*)&dest_addr;
-  uint32_t sum;
-  size_t length = len;
+    int i;
+    int sum = 0;
+    uint16_t *p = (uint16_t *)data;
 
-  // Calculate the sum
-  sum = 0;
-  while (len > 1)
-  {
-    sum += *buf++;
-    if (sum & 0x80000000)
-      sum = (sum & 0xFFFF) + (sum >> 16);
-    len -= 2;
-  }
+    for(i = 0; i < size; i += 2){
+        sum += *(p++);
+    }
 
-  if (len & 1)
-    // Add the padding if the packet lenght is odd
-    sum += *((uint8_t*)buf);
+    uint16_t carry = sum >> 16;
+    uint16_t tmp = 0x0000ffff & sum;
+    uint16_t res = ~(tmp + carry);
 
-  // Add the pseudo-header
-  sum += *(ip_src++);
-  sum += *ip_src;
-
-  sum += *(ip_dst++);
-  sum += *ip_dst;
-
-  sum += htons(IPPROTO_UDP);
-  sum += htons(length);
-
-  // Add the carries
-  while (sum >> 16)
-    sum = (sum & 0xFFFF) + (sum >> 16);
-
-  // Return the one's complement of sum
-  return (uint16_t)~sum;
+    return res;
 }
 
 int main(int argc, char *argv[]) {
@@ -164,6 +142,7 @@ int main(int argc, char *argv[]) {
     hdrip->tot_len = htons(iphdrlen + udphdrlen + 52);      // Full length
     hdrip->saddr = saddr_raw.sin_addr.s_addr;
     hdrip->daddr = daddr_raw.sin_addr.s_addr;
+    hdrip->check = 0;
 
     hdrudp->source = saddr_raw.sin_port;
     hdrudp->dest = daddr_raw.sin_port;
@@ -181,15 +160,43 @@ int main(int argc, char *argv[]) {
     int ttl_here = 1;
     int count = 0;
     srand(time(NULL));
+    int i_r;
+    for (i_r = 0; i_r < 52; i_r++)
+        buf[iphdrlen + udphdrlen + i_r] = 'A' + (random() % 26);
+    *(buf + iphdrlen + udphdrlen + 52) = '\0';
     while(1)
     {
-        int i_r;
-        for (i_r = 0; i_r < 52; i_r++)
-            buf[iphdrlen + udphdrlen + i_r] = 'A' + (random() % 26);
-        *(buf + iphdrlen + udphdrlen + 52) = '\0';
         // printf("%s\n", buf + iphdrlen + udphdrlen);
         hdrip->ttl = ttl_here++;
-        hdrip->check = udp_checksum(buf, iphdrlen + udphdrlen + 52, saddr_raw.sin_addr.s_addr, daddr_raw.sin_addr.s_addr);
+        struct pseudo_iphdr
+        {
+            uint32_t source_addr;
+            uint32_t dest_addr;
+            uint8_t zeros;
+            uint8_t prot;
+            uint16_t length;
+        };
+
+        uint8_t pseudo_packet[2048];
+        struct pseudo_iphdr *p_iphdr = (struct pseudo_iphdr *)pseudo_packet;
+
+
+        if(52 + sizeof(struct pseudo_iphdr) > 2048){
+            fprintf(stderr, "Buffer size not enough");
+            exit(1);
+        }
+
+        p_iphdr->source_addr = saddr_raw.sin_addr.s_addr;
+        p_iphdr->dest_addr = daddr_raw.sin_addr.s_addr;
+        p_iphdr->zeros = 0;
+        p_iphdr->prot = IPPROTO_UDP; //udp
+        p_iphdr->length = hdrudp->len;
+
+
+        memcpy(pseudo_packet + sizeof(struct pseudo_iphdr), buf + iphdrlen, udphdrlen + 52);
+
+        hdrudp->check = checksum(pseudo_packet, sizeof(struct pseudo_iphdr) + 52);
+        // printf("%d\n", checksum(pseudo_packet, sizeof(struct pseudo_iphdr) + 52));
         int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
         clock_t before = clock();
         if (s < 0)
