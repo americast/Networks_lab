@@ -26,6 +26,46 @@ Sayan Sinha
 # define LISTEN_PORT 8080
 // #define LISTEN_IP "127.0.0.1"
 # define LISTEN_IP "0.0.0.0"
+
+uint16_t udp_checksum(struct udphdr *p_udp_header, size_t len, uint32_t src_addr, uint32_t dest_addr)
+{
+  const uint16_t *buf = (const uint16_t*)p_udp_header;
+  uint16_t *ip_src = (void*)&src_addr, *ip_dst = (void*)&dest_addr;
+  uint32_t sum;
+  size_t length = len;
+
+  // Calculate the sum
+  sum = 0;
+  while (len > 1)
+  {
+    sum += *buf++;
+    if (sum & 0x80000000)
+      sum = (sum & 0xFFFF) + (sum >> 16);
+    len -= 2;
+  }
+
+  if (len & 1)
+    // Add the padding if the packet lenght is odd
+    sum += *((uint8_t*)buf);
+
+  // Add the pseudo-header
+  sum += *(ip_src++);
+  sum += *ip_src;
+
+  sum += *(ip_dst++);
+  sum += *ip_dst;
+
+  sum += htons(IPPROTO_UDP);
+  sum += htons(length);
+
+  // Add the carries
+  while (sum >> 16)
+    sum = (sum & 0xFFFF) + (sum >> 16);
+
+  // Return the one's complement of sum
+  return (uint16_t)~sum;
+}
+
 int main(int argc, char *argv[]) {
     char domain[100];
     strcpy(domain, argv[1]);
@@ -118,7 +158,6 @@ int main(int argc, char *argv[]) {
     hdrip->version = 4;
     hdrip->protocol = 17;
     hdrip->id = htonl(0);
-    hdrip->check = 0;
     hdrip->tos = 0;
     hdrip->frag_off = 0;
     hdrip->tot_len = htons(iphdrlen + udphdrlen + 52);      // Full length
@@ -140,9 +179,14 @@ int main(int argc, char *argv[]) {
     struct timeval tv;
     int ttl_here = 1;
     int count = 0;
+    srand(time(NULL));
     while(1)
     {
+        int i_r;
+        for (i_r = 0; i_r < 52; i_r++)
+            buf[iphdrlen + udphdrlen + i_r] = random() % 128;
         hdrip->ttl = ttl_here++;
+        hdrip->check = udp_checksum(buf, iphdrlen + udphdrlen + 52, saddr_raw.sin_addr.s_addr, daddr_raw.sin_addr.s_addr);
         int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
         clock_t before = clock();
         if (s < 0)
@@ -222,5 +266,5 @@ int main(int argc, char *argv[]) {
 
     close(S1);
     close(S2);
-    exit(exit_flag);    
+    exit(exit_flag);
 }
