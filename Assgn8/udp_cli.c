@@ -21,15 +21,12 @@
 #include <sys/wait.h>
 
 #define MSG_SIZE 2048
-# define LISTEN_PORT 8080
+# define LISTEN_PORT 8081
 # define LISTEN_IP "127.0.0.1"
 int main() {
     int udpfd;
-    struct sockaddr_in saddr_udp;
-    int saddr_udp_len;
-    char msg[MSG_SIZE] = "Test";
-    int msglen;
-    int sendlen;
+    struct sockaddr_in saddr_udp, cliaddr;
+    char msg[MSG_SIZE];
     udpfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpfd < 0) {
         perror("udp socket");
@@ -37,16 +34,20 @@ int main() {
     }
     saddr_udp.sin_family = AF_INET;
     saddr_udp.sin_port = htons(LISTEN_PORT);
-    saddr_udp.sin_addr.s_addr = inet_addr(LISTEN_IP);
-    saddr_udp_len = sizeof(saddr_udp);
-    msglen = strlen(msg);
-    sendlen = sendto(udpfd, msg, msglen, 0, (struct sockaddr * ) &
-        saddr_udp, saddr_udp_len);
-    if (sendlen < 0)
-        perror("sendto");
-    else {
-        printf("Successfully send\n");
+    saddr_udp.sin_addr.s_addr = INADDR_ANY;
+
+    if ( bind(udpfd, (const struct sockaddr *)&saddr_udp,  
+                sizeof(saddr_udp)) < 0 ) 
+    { 
+        perror("bind failed"); 
+        exit(EXIT_FAILURE); 
     }
-    close(udpfd);
+
+    int len = sizeof(cliaddr);
+    int n = recvfrom(udpfd, (char *)msg, 2048, 0, 
+                ( struct sockaddr *) &cliaddr, &len);
+
+    msg[n] = '\0';
+    printf("Received: %s\n", msg);
     return 0;
 }

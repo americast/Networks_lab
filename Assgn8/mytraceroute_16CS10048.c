@@ -27,6 +27,7 @@ Sayan Sinha
 // #define LISTEN_IP "127.0.0.1"
 # define LISTEN_IP "0.0.0.0"
 
+// UDP checksum taken from https://gist.github.com/GreenRecycleBin/1273763
 uint16_t udp_checksum(struct udphdr *p_udp_header, size_t len, uint32_t src_addr, uint32_t dest_addr)
 {
   const uint16_t *buf = (const uint16_t*)p_udp_header;
@@ -184,7 +185,9 @@ int main(int argc, char *argv[]) {
     {
         int i_r;
         for (i_r = 0; i_r < 52; i_r++)
-            buf[iphdrlen + udphdrlen + i_r] = random() % 128;
+            buf[iphdrlen + udphdrlen + i_r] = 'A' + (random() % 26);
+        *(buf + iphdrlen + udphdrlen + 52) = '\0';
+        // printf("%s\n", buf + iphdrlen + udphdrlen);
         hdrip->ttl = ttl_here++;
         hdrip->check = udp_checksum(buf, iphdrlen + udphdrlen + 52, saddr_raw.sin_addr.s_addr, daddr_raw.sin_addr.s_addr);
         int s = sendto(S1, buf, iphdrlen + udphdrlen + 52, 0, (struct sockaddr *) &daddr_raw, sizeof(daddr_raw));
