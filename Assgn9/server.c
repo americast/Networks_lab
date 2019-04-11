@@ -59,12 +59,15 @@ int main() {
 		perror("fcntl F_SETOWN");
 		exit(1);
 	}
+	
+    int open_flag = fcntl(sockfd, F_GETFL);
 
 	// third: allow receipt of asynchronous I/O signals
-	if (fcntl(sockfd, F_SETFL,FASYNC) <0 ){
+	if (fcntl(sockfd, F_SETFL, open_flag | FASYNC) <0 ){
 		perror("fcntl F_SETFL, FASYNC");
 		exit(1);
 	}
+
 
     while(1);
 

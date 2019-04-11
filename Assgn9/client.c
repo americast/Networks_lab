@@ -13,7 +13,6 @@
 #define MAXLINE 1024 
 
 int sockfd; 
-struct sockaddr_in servaddr, cliaddr;
 
 void my_recv(int signum)
 {
@@ -31,6 +30,7 @@ void my_recv(int signum)
 int main() { 
   
     // Creating socket file descriptor 
+	struct sockaddr_in servaddr;
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if ( sockfd < 0 ) { 
         perror("socket creation failed"); 
@@ -38,7 +38,6 @@ int main() {
     } 
   
     memset(&servaddr, 0, sizeof(servaddr)); 
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
       
     // Server information 
     servaddr.sin_family = AF_INET; 
@@ -55,13 +54,16 @@ int main() {
 
     signal(SIGIO, my_recv);
 
+
     if (fcntl(sockfd, F_SETOWN, getpid()) < 0){
 		perror("fcntl F_SETOWN");
 		exit(1);
 	}
 
+    int open_flag = fcntl(sockfd, F_GETFL);
+
 	// third: allow receipt of asynchronous I/O signals
-	if (fcntl(sockfd, F_SETFL,FASYNC) <0 ){
+	if (fcntl(sockfd, F_SETFL, open_flag | FASYNC) <0 ){
 		perror("fcntl F_SETFL, FASYNC");
 		exit(1);
 	}
